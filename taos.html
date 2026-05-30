@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TAOS · Sistema de Costos y Presupuestos</title>
+  <link rel="stylesheet" href="taos.css">
+</head>
+<body>
+<div class="app-wrapper">
+
+  <nav class="top-nav">
+    <div class="top-nav-brand">
+      <span class="top-nav-logo">T.A.O.S.</span>
+      <div class="nav-divider"></div>
+      <span class="top-nav-title">Sistema de Costos y Presupuestos</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+      <div style="position:relative">
+        <button class="nav-action-btn" onclick="togglePanelActualizar()" title="Actualizar todo el sistema">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Actualizar Sistema
+        </button>
+        <div id="panel_actualizar" class="guardar-panel" style="display:none">
+          <button class="guardar-panel-btn" onclick="cerrarTodosPaneles(); sincronizarDesdeRegistro(); syncAllCalculators(); calcProyecciones(); actualizarResumenEjecutivo(); renderNomina(); renderInventario(); renderInventarioGeneral(); renderRegistroDiario(); guardarSnapshot('sync'); toast('Sistema actualizado ✓')">🔄 Sincronizar ahora</button>
+          <div id="historial_opts"></div>
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="nav-action-btn" onclick="togglePanelGuardar()" title="Guardar o respaldar datos">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar Sistema
+        </button>
+        <div id="panel_guardar" class="guardar-panel" style="display:none">
+          <button class="guardar-panel-btn" onclick="guardarSistemaLocal()">💾 Guardar Localmente</button>
+          <button class="guardar-panel-btn" onclick="guardarCierreCaja()">🔒 Cierre de Caja</button>
+          <button class="guardar-panel-btn" onclick="guardarRespaldo()">📁 Guardar Respaldo</button>
+          <button class="guardar-panel-btn" onclick="document.getElementById('file_restaurar').click()">📂 Restaurar Respaldo</button>
+          <input type="file" id="file_restaurar" accept=".json" style="display:none" onchange="restaurarRespaldo(this)">
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="nav-action-btn nav-action-btn--danger" onclick="togglePanelReset()" title="Resetear datos">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Reset
+        </button>
+        <div id="panel_reset" class="guardar-panel" style="display:none">
+          <button class="guardar-panel-btn" onclick="restaurarPrimerGuardado()">🕐 Primer Guardado del Día</button>
+          <button class="guardar-panel-btn" onclick="restaurarValoresFabrica()">🏭 Valores de Fábrica</button>
+          <button class="guardar-panel-btn" onclick="restaurarValoresPredeterminados()">🔧 Valores Predeterminados</button>
+          <button class="guardar-panel-btn" onclick="restaurarUltimoMes()">📅 Restaurar Último Mes</button>
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="nav-action-btn" onclick="togglePanelBuzon()" title="Solicitudes pendientes" id="buzon_btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          <span id="buzon_badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;position:absolute;top:-4px;right:-4px">0</span>
+        </button>
+        <div id="panel_buzon" class="guardar-panel" style="display:none;min-width:240px">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">📬 Solicitudes de Acceso</div>
+          <div id="buzon_lista" style="padding:8px 14px"></div>
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="nav-action-btn" onclick="togglePanelProfile()" title="Operador" id="profile_btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="profile_btn_name" style="font-weight:600;margin-left:4px">Operador</span>
+        </button>
+        <div id="panel_profile" class="guardar-panel" style="display:none;min-width:220px">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Operador actual</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="text" id="profile_name_input" value="Operador" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;font-weight:600" maxlength="30" onchange="guardarNombreOperador(this.value)">
+              <span id="profile_lock_icon" style="cursor:pointer;font-size:16px;opacity:.6" onclick="toggleBloqueoOperador()" title="Bloqueado — haz clic para desbloquear">🔒</span>
+            </div>
+          </div>
+          <button class="guardar-panel-btn" onclick="guardarYCerrarSesion()" style="color:var(--orange-text)">🚪 Cerrar sesión y guardar</button>
+          <button class="guardar-panel-btn" onclick="registrarOperadorNuevo()" style="color:var(--green-text);border-top:1px solid var(--border)">➕ Registrar operador nuevo</button>
+          <div id="otros_operadores_wrap" style="padding:8px 14px;border-top:1px solid var(--border)">
+            <div id="otros_operadores_list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-tabs">
+    <button class="main-tab active" data-tab="resumen">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Resumen Ejecutivo</span>
+    </button>
+    <button class="main-tab" data-tab="calculadoras">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
+      <span>Calculadoras</span>
+    </button>
+    <button class="main-tab" data-tab="registro">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Registro Diario</span>
+    </button>
+    <button class="main-tab" data-tab="control">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2"/><path d="M21 20c0-2-1.8-3.5-4-3.5"/></svg>
+      <span>Control Financiero</span>
+    </button>
+    <button class="main-tab" data-tab="proyecciones">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      <span>Proyecciones</span>
+    </button>
+  </div>
+
+  <!-- ══ TAB 1 — RESUMEN EJECUTIVO ══ -->
+  <div class="tab-content active" id="tab_resumen">
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title">Proceso Productivo — Mapa de Flujo</div>
+
+      <div id="mapa_flujo_body">
+      <!-- LAYOUT: UN BLOQUE POR FILA (uno debajo del otro) -->
+      <div class="proceso-flow-h">
+
+        <!-- COMERCIAL -->
+        <div class="proceso-col-h" data-area="comercial">
+          <div class="proceso-step active" data-step="comercial" onclick="activarPaso('comercial')">COMERCIAL</div>
+          <div class="proceso-sub-h">
+            <div class="proceso-area-label">Área Mostrador / Área Facturación - Entrega</div>
+            <div class="proceso-result-tag">→ Atención al cliente, Ventas, Facturas, Documentación</div>
+            <div class="proceso-personal">
+              <div class="personal-check" data-pid="1">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_1" onchange="togglePresencia(1,this.checked)"><span class="check-mark"></span><span class="personal-name">María García</span></label>
+                <span class="personal-role">Área Mostrador</span>
+              </div>
+              <div class="personal-check" data-pid="2">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_2" onchange="togglePresencia(2,this.checked)"><span class="check-mark"></span><span class="personal-name">Carlos López</span></label>
+                <span class="personal-role">Área Facturación - Entrega</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMINISTRACIÓN -->
+        <div class="proceso-col-h" data-area="admin">
+          <div class="proceso-step" data-step="administracion" onclick="activarPaso('administracion')">ADMINISTRACIÓN</div>
+          <div class="proceso-sub-h">
+            <div class="proceso-area-label">Área Dirección / Área Coordinación-Control / Área Marketing</div>
+            <div class="proceso-result-tag">→ Toma de decisiones, Gestión, Reportes, Auditoría, Publicidad</div>
+            <div class="proceso-personal">
+              <div class="personal-check" data-pid="4">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_4" onchange="togglePresencia(4,this.checked)"><span class="check-mark"></span><span class="personal-name">Pedro Vargas</span></label>
+                <span class="personal-role">Área Dirección</span>
+              </div>
+              <div class="personal-check" data-pid="11">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_11" onchange="togglePresencia(11,this.checked)"><span class="check-mark"></span><span class="personal-name">Martin Arias</span></label>
+                <span class="personal-role">Área Marketing</span>
+              </div>
+              <div class="personal-check" data-pid="3">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_3" onchange="togglePresencia(3,this.checked)"><span class="check-mark"></span><span class="personal-name">Ana Torres</span></label>
+                <span class="personal-role">Área Coordinación Control</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OPERACIONES -->
+        <div class="proceso-col-h" data-area="operaciones">
+          <div class="proceso-step" data-step="operaciones" onclick="activarPaso('operaciones')">OPERACIONES</div>
+          <div class="proceso-sub-h">
+            <div class="proceso-area-label">Área Lavado / Área Maduración / Área Modelado / Área Empaquetado-Etiquetado / Área Depósito</div>
+            <div class="proceso-result-tag">→ Adecuación ingredientes, Maduración, Moldes, Empaque, Almacenamiento</div>
+            <div class="proceso-personal">
+              <div class="personal-check" data-pid="5">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_5" onchange="togglePresencia(5,this.checked)"><span class="check-mark"></span><span class="personal-name">Lucía Méndez</span></label>
+                <span class="personal-role">Área Lavado / Pasteurización</span>
+              </div>
+              <div class="personal-check" data-pid="6">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_6" onchange="togglePresencia(6,this.checked)"><span class="check-mark"></span><span class="personal-name">Diego Ríos</span></label>
+                <span class="personal-role">Área Maduración</span>
+              </div>
+              <div class="personal-check" data-pid="7">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_7" onchange="togglePresencia(7,this.checked)"><span class="check-mark"></span><span class="personal-name">Sofía Castro</span></label>
+                <span class="personal-role">Área Modelado</span>
+              </div>
+              <div class="personal-check" data-pid="8">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_8" onchange="togglePresencia(8,this.checked)"><span class="check-mark"></span><span class="personal-name">Andrés Paz</span></label>
+                <span class="personal-role">Área Empaquetado-Etiquetado</span>
+              </div>
+              <div class="personal-check" data-pid="9">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_9" onchange="togglePresencia(9,this.checked)"><span class="check-mark"></span><span class="personal-name">Kerly Vivanco</span></label>
+                <span class="personal-role">Área Depósito</span>
+              </div>
+              <div class="personal-check" data-pid="10">
+                <label class="check-toggle"><input type="checkbox" id="pcheck_10" onchange="togglePresencia(10,this.checked)"><span class="check-mark"></span><span class="personal-name">Daniel Garcia</span></label>
+                <span class="personal-role">Apoyo General / Logística</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RESULTADO -->
+        <div class="proceso-col-h resultado-col">
+          <div class="proceso-step result" data-step="resultado" onclick="activarPaso('resultado')">RESULTADO</div>
+          <div class="proceso-sub-h">
+            <div class="proceso-area-label">Consolidado Operativo</div>
+            <div class="proceso-result-tag">→ Producto terminado, facturado y entregado al cliente</div>
+            <div class="proceso-personal resultado-panel">
+              <div class="resultado-stat">
+                <span class="resultado-label">Personal presente</span>
+                <span class="resultado-val" id="res_personal_presente">0 / 11</span>
+              </div>
+              <div class="resultado-stat">
+                <span class="resultado-label">Capacidad operativa</span>
+                <span class="resultado-val" id="res_cap_operativa">—</span>
+              </div>
+              <div class="resultado-stat" style="flex-direction:row;gap:8px;align-items:center;flex-wrap:wrap">
+                <span class="resultado-label">Fecha</span>
+                <input type="date" id="res_fecha" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)" onchange="sincronizarFechaResultado(this.value)">
+                <button class="btn-primary" style="padding:4px 10px;font-size:11px" onclick="guardarAsistencia()">Guardar Asistencia</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /proceso-flow-h -->
+      </div><!-- /mapa_flujo_body -->
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">Personal Activo</div><div class="stat-value" id="re_personal">—</div><div class="stat-badge">↗ activo</div></div>
+      <div class="stat-card"><div class="stat-label">U. Producidas</div><div class="stat-value" id="re_u_prod">—</div></div>
+      <div class="stat-card"><div class="stat-label">U. Vendidas</div><div class="stat-value" id="re_u_vend">—</div></div>
+      <div class="stat-card"><div class="stat-label">Ingresos</div><div class="stat-value big" id="re_ingresos">—</div><div class="stat-badge">↗ ingresos</div></div>
+      <div class="stat-card"><div class="stat-label">Egresos</div><div class="stat-value big" id="re_egresos" style="color:var(--red)">—</div><div class="stat-badge down">↘ egresos</div></div>
+      <div class="stat-card"><div class="stat-label">Ganancia</div><div class="stat-value big" id="re_ganancia" style="color:var(--green-text)">—</div></div>
+    </div>
+
+    <!-- Contador Punto de Equilibrio -->
+    <div class="equilibrio-card">
+      <div class="eq-circle-wrap">
+        <div class="eq-circle">
+          <svg width="110" height="110" style="position:absolute;transform:rotate(-90deg)">
+            <circle cx="55" cy="55" r="48" fill="none" stroke="var(--border2)" stroke-width="5"/>
+            <circle id="eq_circle_fill" cx="55" cy="55" r="48" fill="none"
+              stroke="var(--brand)" stroke-width="5"
+              stroke-dasharray="301.59" stroke-dashoffset="301.59"
+              style="transition:stroke-dashoffset .8s ease"/>
+          </svg>
+          <span class="eq-pct" id="eq_circle_num" style="position:relative;z-index:1">—</span>
+          <span class="eq-label" style="position:relative;z-index:1">progreso</span>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--text3);text-align:center;margin-top:6px">Equilibrio</div>
+      </div>
+      <div class="eq-info">
+        <h4>Progreso hacia el Punto de Equilibrio</h4>
+        <div class="eq-big" id="eq_pct">—</div>
+        <div class="eq-meta">
+          <div class="eq-meta-item">
+            <label>P.E. Unidades</label>
+            <span id="eq_pe_unidades">—</span>
+          </div>
+          <div class="eq-meta-item">
+            <label>P.E. Dinero</label>
+            <span id="eq_pe_dinero">—</span>
+          </div>
+          <div class="eq-fields-grid">
+            <div class="field-group">
+              <div class="field-label">Unidades Vendidas Hoy</div>
+              <div class="field-input-wrap">
+                <input class="field-input" id="actual_u_vendidas" type="number" value="170" min="0" step="1">
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Unidades Producidas Hoy</div>
+              <div class="field-input-wrap">
+                <input class="field-input" id="eq_uprod" type="number" min="0" step="1" placeholder="0">
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Ingresos Hoy ($)</div>
+              <div class="field-input-wrap"><span class="field-prefix">$</span>
+                <input class="field-input" id="eq_ingresos" type="number" min="0" step="0.01" placeholder="0.00">
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Egresos Hoy ($)</div>
+              <div class="field-input-wrap"><span class="field-prefix">$</span>
+                <input class="field-input" id="eq_egresos" type="number" min="0" step="0.01" placeholder="0.00">
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">Fecha de Actualización</div>
+              <div class="field-input-wrap">
+                <input class="field-input" id="eq_fecha" type="date">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn-save" id="btn_guardar_progreso" onclick="guardarConsolidado()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Actualizar Progreso
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Consolidado</div>
+    <div class="consolidado-grid">
+      <div class="cons-card">
+        <div class="cons-header"><span class="cons-tag green">Global — Tiempo Real</span></div>
+        <div class="cons-row">
+          <div class="cons-item"><label>Personal</label><span id="cons_g_personal">—</span></div>
+          <div class="cons-item"><label>U. Producidas</label><span id="cons_g_uprod">—</span></div>
+          <div class="cons-item"><label>U. Vendidas</label><span id="cons_g_uvend">—</span></div>
+        </div>
+        <hr class="cons-divider">
+        <div class="cons-row">
+          <div class="cons-item"><label>Ingresos</label><span id="cons_g_ing">—</span></div>
+          <div class="cons-item"><label>Egresos</label><span id="cons_g_eg" class="red">—</span></div>
+          <div class="cons-item"><label>Ganancia</label><span id="cons_g_gan">—</span></div>
+        </div>
+      </div>
+      <div class="cons-card">
+        <div class="cons-header"><span class="cons-tag orange">Esperados</span></div>
+        <div class="cons-row">
+          <div class="cons-item"><label>Personal</label><span id="cons_e_personal">—</span></div>
+          <div class="cons-item"><label>U. Producidas</label><span id="cons_e_uprod">—</span></div>
+          <div class="cons-item"><label>U. Vendidas</label><span id="cons_e_uvend">—</span></div>
+        </div>
+        <hr class="cons-divider">
+        <div class="cons-row">
+          <div class="cons-item"><label>Ingresos</label><span id="cons_e_ing">—</span></div>
+          <div class="cons-item"><label>Egresos</label><span id="cons_e_eg" class="red">—</span></div>
+          <div class="cons-item"><label>Ganancia</label><span id="cons_e_gan" class="green">—</span></div>
+        </div>
+      </div>
+      <div class="cons-card">
+        <div class="cons-header"><span class="cons-tag blue">Futuros</span></div>
+        <div class="cons-row">
+          <div class="cons-item"><label>Personal</label><span id="cons_f_personal">—</span></div>
+          <div class="cons-item"><label>U. Producidas</label><span id="cons_f_uprod">—</span></div>
+          <div class="cons-item"><label>U. Vendidas</label><span id="cons_f_uvend">—</span></div>
+        </div>
+        <hr class="cons-divider">
+        <div class="cons-row">
+          <div class="cons-item"><label>Ingresos</label><span id="cons_f_ing">—</span></div>
+          <div class="cons-item"><label>Egresos</label><span id="cons_f_eg" class="red">—</span></div>
+          <div class="cons-item"><label>Ganancia</label><span id="cons_f_gan" class="green">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab_resumen -->
+
+  <!-- ══ TAB 2 — CALCULADORAS ══ -->
+  <div class="tab-content" id="tab_calculadoras">
+    <div class="calc-tabs">
+      <button class="calc-tab active" data-calc="costos_fijos">Costos Fijos</button>
+      <button class="calc-tab" data-calc="costos_variables">Costos Variables</button>
+      <button class="calc-tab" data-calc="directos_indirectos">Directos e Indirectos</button>
+      <button class="calc-tab" data-calc="materia_prima">Materia Prima</button>
+      <button class="calc-tab" data-calc="mano_obra">Mano de Obra</button>
+      <button class="calc-tab" data-calc="costeo_receta">Costeo de Receta</button>
+      <button class="calc-tab" data-calc="margen_ganancia">Margen de Ganancia</button>
+      <button class="calc-tab" data-calc="punto_equilibrio">Punto de Equilibrio</button>
+    </div>
+
+    <div class="calc-panel active" id="calc_costos_fijos">
+      <div class="calc-result-card"><div><div class="calc-result-label">Total Costos Fijos</div><div class="calc-result-value" id="cf_total">$0.00</div></div></div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Arriendo / Alquiler ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_arriendo" type="number" value="600" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Servicios Básicos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_servicios" type="number" value="300" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Nómina Total <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_nomina_val" type="number" value="7040" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">Depreciación Maquinaria <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_deprec" type="number" value="610" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Consumibles / Suministros ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_consumibles" type="number" value="200" min="0" step="10"></div></div>
+      </div>
+      <div class="auto-note">Nómina y Depreciación se sincronizan automáticamente desde Control Financiero.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_costos_variables">
+      <div class="calc-result-card"><div><div class="calc-result-label">Total Costos Variables</div><div class="calc-result-value" id="cv_total">$0.00</div></div></div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Costo Unitario Variable <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cv_costo_unit" type="number" value="3.294" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Cantidad de Unidades</div><div class="field-input-wrap"><input class="field-input" id="cv_cantidad" type="number" value="200" min="0" step="1" style="padding-left:10px"></div></div>
+      </div>
+      <div class="auto-note">Costo Unitario se sincroniza desde Materia Prima.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_directos_indirectos">
+      <div class="calc-result-card" style="background:var(--blue-soft);border-color:#7ec8e3">
+        <div><div class="calc-result-label" style="color:var(--blue-text)">Costos Directos</div><div class="calc-result-value" id="di_directos" style="color:var(--blue-text)">$0.00</div></div>
+        <div style="text-align:right"><div style="font-size:11px;font-weight:600;color:var(--blue-text);margin-bottom:2px">COSTOS INDIRECTOS</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--blue-text)" id="di_indirectos">$0.00</div></div>
+      </div>
+      <div class="calc-result-card" style="margin-top:8px"><div><div class="calc-result-label">Total Estructura de Costos</div><div class="calc-result-value" id="di_total">$0.00</div></div></div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Materia Prima ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_mp" type="number" value="560" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Mano de Obra Directa <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="di_mod" type="number" value="7040" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">CIF — Costos Ind. de Fabricación ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_cif" type="number" value="200" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Gastos Adm. Generales ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gadm" type="number" value="900" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Gastos de Ventas ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gven" type="number" value="290" min="0" step="10"></div></div>
+      </div>
+      <div class="auto-note">Mano de Obra se sincroniza automáticamente desde la calculadora de M.O.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_materia_prima">
+      <div class="calc-result-card dark"><div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.6);margin-bottom:4px">Costo Materia Prima / Unidad</div><div style="font-size:32px;font-weight:700;font-family:var(--mono);color:var(--brand)" id="mp_total_disp">$0.0000</div></div></div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Mezcla Base ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_mezcla" type="number" value="3.00" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Congelante / Aditivos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_congelante" type="number" value="0.25" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Merma (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="mp_merma" type="number" value="1.33" min="0" max="100" step="0.01"></div></div>
+      </div>
+      <div class="auto-note">El resultado se propaga automáticamente a Costeo de Receta, Costos Variables y Punto de Equilibrio.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_mano_obra">
+      <div class="calc-result-card" style="background:var(--purple-soft);border-color:#c4a8ff"><div><div class="calc-result-label" style="color:var(--purple-text)">Total Mano de Obra</div><div class="calc-result-value" id="mo_total" style="color:var(--purple-text)">$0.00</div></div></div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Salario por Hora ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mo_salario" type="number" value="2.30" min="0.01" step="0.10"></div></div>
+        <div class="field-group"><div class="field-label">Horas Trabajadas / Mes</div><div class="field-input-wrap"><input class="field-input" id="mo_horas" type="number" value="200" min="1" max="744" step="1" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">N° Trabajadores <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><input class="field-input" id="mo_trabajadores" type="number" value="4" min="1" step="1" style="padding-left:10px"></div></div>
+      </div>
+      <div class="auto-note">N° Trabajadores se sincroniza automáticamente con el personal de Operaciones en Nómina.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_costeo_receta">
+      <div class="calc-result-card dark" style="flex-direction:column;gap:6px;padding:20px 24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">
+          <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.6);margin-bottom:4px">Precio de Venta con IVA</div><div style="font-size:32px;font-weight:700;font-family:var(--mono);color:var(--brand)" id="cr_pvdiva_disp">$0.00</div></div>
+          <div style="text-align:right"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.5);margin-bottom:4px">Costo Materia Prima</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:rgba(255,255,255,.9)" id="cr_psc_disp">$0.0000</div></div>
+        </div>
+      </div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">PSC — Precio de Costo <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_psc" type="number" value="3.294" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Margen de Ganancia (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="cr_margen" type="number" value="61.3" min="0" max="99" step="0.1"></div></div>
+        <div class="field-group"><div class="field-label">IVA (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="cr_iva" type="number" value="15" min="0" max="100" step="1"></div></div>
+        <div class="field-group"><div class="field-label">PVD — Precio de Venta s/IVA <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_pvd" type="number" readonly></div></div>
+        <div class="field-group"><div class="field-label">PVD con IVA <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_pvdiva" type="number" readonly></div></div>
+        <div class="field-group"><div class="field-label">Markup (%) <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">%</span><input class="field-input" id="cr_markup" type="number" readonly></div></div>
+      </div>
+      <div class="auto-note">PSC se sincroniza desde Materia Prima. PVD, PVD+IVA y Markup se calculan automáticamente.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_margen_ganancia">
+      <div class="calc-result-card" style="background:var(--orange-soft);border-color:#f5c08a">
+        <div><div class="calc-result-label" style="color:var(--orange-text)">Margen de Ganancia</div><div class="calc-result-value" id="mg_total_margen" style="color:var(--orange-text)">0.0%</div><div id="mg_margen_indicator" class="mg-indicator bad">● Bajo</div></div>
+        <div style="text-align:right"><div style="font-size:11px;font-weight:600;color:var(--orange-text);margin-bottom:2px">GANANCIA NETA</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--orange-text)" id="mg_ganancia_neta">$0.00</div></div>
+      </div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Ingresos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="mg_ingresos" type="number" value="0" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Egresos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="mg_egresos" type="number" value="0" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Inversión Registrada</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mg_inversion" type="number" value="5000" min="0" step="100"></div></div>
+      </div>
+      <div class="auto-note">Ingresos y Egresos se sincronizan automáticamente con el Registro Diario. Sobreescribibles manualmente.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_punto_equilibrio">
+      <div class="calc-result-card red">
+        <div><div class="calc-result-label" style="color:var(--red)">Punto de Equilibrio</div><div class="calc-result-value" id="pe_total_unidades" style="color:var(--red)">0 unidades</div><div style="font-size:12px;color:var(--red);margin-top:4px">Se necesita <strong id="pe_dinero_disp">$0.00</strong> para cubrir todos los costos</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--red);font-weight:600;margin-bottom:2px">MARGEN DE CONTRIBUCIÓN</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--red)" id="pe_margen_contrib">$0.00</div></div>
+      </div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Costos Fijos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costos_fijos" type="number" value="10750" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">Precio de Venta Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_precio_venta" type="number" value="8.50" min="0.01" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Costo Variable Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costo_var_unit" type="number" value="3.50" min="0" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Unidades para Cubrir Costos <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><input class="field-input" id="pe_unidades" type="number" value="0" readonly style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Dinero para Cubrir Costos <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_dinero" type="number" value="0" readonly></div></div>
+      </div>
+      <div class="auto-note">Costos Fijos → Nómina + Inventario. Precio → Costeo de Receta. Costo Variable → Materia Prima.</div>
+    </div>
+  </div><!-- /tab_calculadoras -->
+
+  <!-- ══ TAB 3 — REGISTRO DIARIO ══ -->
+  <div class="tab-content" id="tab_registro">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span style="font-size:16px;font-weight:700">Registro Diario de Operaciones</span>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title">Registrar Nuevo Día</div>
+      <div class="reg-form-grid">
+        <div class="field-group"><div class="field-label">Fecha</div><div class="field-input-wrap"><input class="field-input" id="reg_fecha" type="date" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Día</div><div class="field-input-wrap"><input class="field-input" id="reg_dia" type="text" placeholder="Ej: Lunes" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Semana</div><div class="field-input-wrap"><select class="field-input" id="reg_semana" style="padding-left:10px"></select></div></div>
+        <div class="field-group"><div class="field-label">Mes</div><div class="field-input-wrap"><select class="field-input" id="reg_mes"><option value="0">—</option><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div></div>
+        <div class="field-group"><div class="field-label">Presentes</div><div class="field-input-wrap"><input class="field-input" id="reg_presentes" type="text" readonly style="padding-left:10px;font-weight:700;color:var(--green-text)" value="—"></div></div>
+        <div class="field-group"><div class="field-label">U. Producidas</div><div class="field-input-wrap"><input class="field-input" id="reg_uprod_form" type="number" min="0" step="1" placeholder="0" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">U. Vendidas</div><div class="field-input-wrap"><input class="field-input" id="reg_uvend_form" type="number" min="0" step="1" placeholder="0" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Precio Vta. Unit. <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="reg_pvu" type="number" min="0" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Costo Fab. Unit. <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="reg_cfu" type="number" min="0" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Ingresos ($) — AUTO</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="reg_ingresos_form" type="number" min="0" step="0.01" placeholder="0.00" readonly tabindex="-1"></div></div>
+        <div class="field-group"><div class="field-label">Egresos ($) — AUTO</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="reg_egresos_form" type="number" min="0" step="0.01" placeholder="0.00" readonly tabindex="-1"></div></div>
+      </div>
+      <div class="reg-preview" id="reg_preview">
+        <span>Ganancia: <strong id="reg_prev_gan">$0.00</strong></span>
+        <span>Margen: <strong id="reg_prev_marg">0.00%</strong></span>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="btn-save" onclick="agregarRegistroDiario()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar Registro
+        </button>
+        <button class="btn-export" onclick="exportarCSV(TAOS.state.registroDiario,'registro_diario_taos')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">Registros</div><div class="stat-value" id="reg_count_total">0</div></div>
+      <div class="stat-card"><div class="stat-label">Unidades Producidas Acum.</div><div class="stat-value" id="reg_acum_uprod">0</div></div>
+      <div class="stat-card"><div class="stat-label">Unidades Vendidas Acum.</div><div class="stat-value" id="reg_acum_uvend">0</div></div>
+      <div class="stat-card"><div class="stat-label">Ingresos Acum.</div><div class="stat-value big" id="reg_acum_ing">$0.00</div></div>
+      <div class="stat-card"><div class="stat-label">Egresos Acum.</div><div class="stat-value big" id="reg_acum_eg" style="color:var(--red)">$0.00</div></div>
+      <div class="stat-card"><div class="stat-label">Ganancia Acum.</div><div class="stat-value big" id="reg_acum_gan" style="color:var(--green-text)">$0.00</div></div>
+    </div>
+
+    <!-- Filtro de Periodo con Calendario -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title">Filtro de Periodo — Cierre Semanal</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+        <div class="field-group" style="min-width:160px">
+          <div class="field-label">Mes</div>
+          <div class="field-input-wrap">
+            <select class="field-input" id="reg_filtro_mes" onchange="onChangeFiltroMes()" style="padding-left:10px">
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="min-width:140px">
+          <div class="field-label">Semana</div>
+          <div class="field-input-wrap">
+            <select class="field-input" id="reg_filtro_semana" onchange="renderCalendarioRegistro()" style="padding-left:10px"></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <button class="btn-save" onclick="filtrarPeriodo()">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Filtrar
+          </button>
+          <button class="btn-secondary" onclick="limpiarFiltroPeriodo()">Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Calendario interactivo -->
+      <div class="reg-calendar" id="reg_calendario_wrap">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="calNavMes(-1)">&#8249;</button>
+          <span class="cal-header-title" id="cal_titulo">—</span>
+          <button class="cal-nav-btn" onclick="calNavMes(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="cal_dias_head"></div>
+        <div class="cal-grid" id="cal_dias_body"></div>
+        <div class="cal-selected-info" id="cal_selected_info" style="display:none"></div>
+      </div>
+
+      <!-- Resumen del periodo filtrado -->
+      <div id="reg_periodo_resumen" style="display:none;margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px" id="reg_periodo_titulo">—</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap">
+          <div><span style="font-size:12px;color:var(--text3)">Unidades Vendidas:</span> <strong id="reg_periodo_uvend" style="color:var(--brand)">0</strong></div>
+          <div><span style="font-size:12px;color:var(--text3)">Unidades Producidas:</span> <strong id="reg_periodo_uprod">0</strong></div>
+          <div><span style="font-size:12px;color:var(--text3)">Ingresos:</span> <strong id="reg_periodo_ing" style="color:var(--green-text)">$0.00</strong></div>
+          <div><span style="font-size:12px;color:var(--text3)">Egresos:</span> <strong id="reg_periodo_eg" style="color:var(--red)">$0.00</strong></div>
+          <div><span style="font-size:12px;color:var(--text3)">Ganancia:</span> <strong id="reg_periodo_gan">$0.00</strong></div>
+          <div><span style="font-size:12px;color:var(--text3)">Días:</span> <strong id="reg_periodo_dias">0</strong></div>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text3)">
+          ✓ Este resultado actualiza automáticamente <strong>Unidades Vendidas — Periodo del Cierre</strong> en Proyecciones.
+        </div>
+      </div>
+    </div>
+
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>DÍA</th><th>SEMANA</th><th>MES</th><th>FECHA</th>
+            <th>U. PRODUCIDAS</th><th>U. VENDIDAS</th>
+            <th>INGRESOS</th><th>EGRESOS</th><th>GANANCIA</th><th>MARGEN</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody id="reg_tbody"></tbody>
+      </table>
+      <div class="table-footer">
+        <span>ACUMULADO TOTAL</span>
+        <span class="footer-total" id="reg_footer_total">$0.00</span>
+      </div>
+    </div>
+  </div><!-- /tab_registro -->
+
+  <!-- ══ TAB 4 — CONTROL FINANCIERO ══ -->
+  <div class="tab-content" id="tab_control">
+    <div class="cf-tabs">
+      <button class="cf-tab active" data-cf="nomina">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2"/><path d="M21 20c0-2-1.8-3.5-4-3.5"/></svg>
+        Nómina
+      </button>
+      <button class="cf-tab" data-cf="inv_general">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        Inventario General
+      </button>
+      <button class="cf-tab" data-cf="inventario">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Áreas y Estaciones de Trabajo
+      </button>
+    </div>
+
+    <!-- PANEL NÓMINA -->
+    <div class="cf-panel active" id="cf_nomina">
+      <div class="section-title">Visualizar Colaboradores</div>
+      <div class="nomina-stats-grid">
+        <div class="nom-stat"><div class="nom-stat-label">Total Colaboradores</div><div class="nom-stat-val" id="nom_total_colab">—</div></div>
+        <div class="nom-stat"><div class="nom-stat-label">Total Horas Acumuladas - Mes</div><div class="nom-stat-val" id="nom_total_horas">—</div></div>
+        <div class="nom-stat"><div class="nom-stat-label">Costo/Hora Promedio</div><div class="nom-stat-val" id="nom_prom_hora">—</div></div>
+        <div class="nom-stat highlight"><div class="nom-stat-label">Nómina Total</div><div class="nom-stat-val" id="nom_total">—</div></div>
+      </div>
+      <div class="table-toolbar">
+        <div class="search-input-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="nom_buscar" placeholder="Buscar colaborador...">
+        </div>
+        <div class="filter-chips">
+          <span class="chip active" data-filter-nom="todas">TODAS</span>
+          <span class="chip" data-filter-nom="comercial">COMERCIAL</span>
+          <span class="chip" data-filter-nom="administracion">ADMINISTRACIÓN</span>
+          <span class="chip" data-filter-nom="operaciones">OPERACIONES</span>
+        </div>
+        <button class="btn-primary" onclick="abrirModalColaborador()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar Colaborador
+        </button>
+        <button class="btn-export" onclick="exportarCSV(TAOS.state.colaboradores,'nomina_taos')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          CSV
+        </button>
+      </div>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>NOMBRE</th><th>ÁREA</th><th>DIVISIÓN</th><th>HORAS / MES</th>
+              <th>RECURSOS / EQUIPOS</th><th>ESTACIÓN</th><th>FUNCIÓN LABORAL</th>
+              <th>$/HORA</th><th>TOTAL MES</th><th>ACCIONES</th>
+            </tr>
+          </thead>
+          <tbody id="nom_tbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <span>NÓMINA TOTAL</span>
+          <span class="footer-total" id="nom_footer_total">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL INVENTARIO GENERAL -->
+    <div class="cf-panel" id="cf_inv_general">
+      <div class="invgen-header-bar">
+        <div>
+          <h3>Inventario General Consolidado</h3>
+          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px">Todos los activos, herramientas, EPP y consumibles por categoría y área</div>
+        </div>
+        <div style="text-align:right">
+          <div class="invgen-grand-label">Valor Total</div>
+          <div class="invgen-grand-total" id="inv_gen_grand_total">$0.00</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px"><span id="inv_gen_count">0</span> ítems registrados</div>
+        </div>
+      </div>
+      <div class="invgen-toolbar">
+        <div class="search-input-wrap" style="max-width:360px">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="inv_gen_buscar" placeholder="Buscar en todo el inventario...">
+        </div>
+        <button class="btn-primary" onclick="abrirModalInventario()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar Ítem
+        </button>
+        <button class="btn-export" onclick="exportarCSV(TAOS.state.inventario,'inventario_general_taos')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar CSV
+        </button>
+        <button class="btn-save" onclick="renderInventarioGeneral();toast('Inventario actualizado ✓')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar y actualizar
+        </button>
+      </div>
+
+      <!-- Filtros rápidos por categoría — FUNCIONALES -->
+      <div class="invgen-filter-bar" id="invgen_filter_bar">
+        <span class="chip active" data-filter-invgen="todas">TODAS</span>
+        <span class="chip" data-filter-invgen="infraestructura">INSTALACIONES</span>
+        <span class="chip" data-filter-invgen="mobiliario">ESTACIÓN DE TRABAJO</span>
+        <span class="chip" data-filter-invgen="maquinaria">ESTACIÓN DE PROCESOS</span>
+        <span class="chip" data-filter-invgen="herramientas">KIT DE HERRAMIENTAS</span>
+        <span class="chip" data-filter-invgen="epp">E.P.P.</span>
+        <span class="chip" data-filter-invgen="consumibles">KIT DE CONSUMIBLES</span>
+      </div>
+      <div class="invgen-body" id="inv_general_content"></div>
+    </div>
+
+    <!-- PANEL ÁREAS Y ESTACIONES -->
+    <div class="cf-panel" id="cf_inventario">
+      <div class="section-title">Inventario de Activos por Estación — Personal</div>
+      <div class="inv-summary-grid">
+        <div class="inv-sum-card"><div class="inv-sum-label">Infraestructura</div><div class="inv-sum-val" id="inv_sum_inf">$0.00</div></div>
+        <div class="inv-sum-card"><div class="inv-sum-label">Mobiliario</div><div class="inv-sum-val" id="inv_sum_mob">$0.00</div></div>
+        <div class="inv-sum-card"><div class="inv-sum-label">Maquinaria</div><div class="inv-sum-val" id="inv_sum_maq">$0.00</div></div>
+        <div class="inv-sum-card"><div class="inv-sum-label">Herramientas</div><div class="inv-sum-val" id="inv_sum_her">$0.00</div></div>
+        <div class="inv-sum-card"><div class="inv-sum-label">EPP</div><div class="inv-sum-val" id="inv_sum_epp">$0.00</div></div>
+        <div class="inv-sum-card"><div class="inv-sum-label">Consumibles</div><div class="inv-sum-val" id="inv_sum_con">$0.00</div></div>
+      </div>
+
+      <div class="table-toolbar">
+        <div class="search-input-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="inv_buscar" placeholder="Buscar colaborador / ítem...">
+        </div>
+        <div class="filter-chips">
+          <span class="chip active" data-filter-inv="todas">TODAS</span>
+          <span class="chip" data-filter-inv="comercial">COMERCIAL</span>
+          <span class="chip" data-filter-inv="administracion">ADMINISTRACIÓN</span>
+          <span class="chip" data-filter-inv="operaciones">OPERACIONES</span>
+        </div>
+        <button class="btn-primary" onclick="abrirModalInventario()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar ítem
+        </button>
+        <button class="btn-export" onclick="exportarCSV(TAOS.state.inventario,'inventario_taos')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          CSV
+        </button>
+      </div>
+
+      <div class="data-table-wrap">
+        <table class="data-table estaciones-cardex-table">
+          <thead>
+            <tr>
+              <th>NOMBRE</th>
+              <th>ESTACIÓN</th>
+              <th>ÁREA</th>
+              <th>INSTALACIONES</th>
+              <th>EST. PROCESOS (MAQUINARIA)</th>
+              <th>E.P.P.</th>
+              <th>HERRAMIENTAS</th>
+              <th>CONSUMIBLES</th>
+              <th>FUNCIÓN LABORAL</th>
+              <th>TOTAL + IVA</th>
+              <th>ACCIONES</th>
+            </tr>
+          </thead>
+          <tbody id="inv_tbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <span>VALOR TOTAL DEL INVENTARIO (con IVA)</span>
+          <span class="footer-total" id="inv_total">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab_control -->
+
+  <!-- ══ TAB 5 — PROYECCIONES ══ -->
+  <div class="tab-content" id="tab_proyecciones">
+    <div class="cf-tabs">
+      <button class="cf-tab active" data-cf="escenario_actual">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+        1. Escenario Actual
+      </button>
+      <button class="cf-tab" data-cf="proyecciones_financieras">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        2. Proyecciones Financieras
+      </button>
+    </div>
+
+    <!-- PANEL: ESCENARIO ACTUAL -->
+    <div class="cf-panel active" id="cf_escenario_actual">
+      <div class="card proy-section">
+        <div class="section-title">Situación Actual</div>
+
+        <div class="proy-fields-grid">
+          <div class="field-group">
+            <div class="field-label">Tasa de Crecimiento Real <span class="auto-badge">AUTO</span></div>
+            <div class="field-input-wrap auto-field"><span class="field-prefix">%</span><input class="field-input" id="actual_tasa_crec" type="number" value="0" readonly></div>
+            <div class="field-helper">Basada en: (U. Vendidas Acum. − 200 PE) / 200 × 100</div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Mes</div>
+            <div class="field-input-wrap">
+              <select class="field-input" id="actual_mes" onchange="actualizarSemanasActual(); actualizarPeriodoActual()">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Semana</div>
+            <div class="field-input-wrap">
+              <select class="field-input" id="actual_semana" onchange="actualizarPeriodoActual()"></select>
+            </div>
+            <div class="field-helper">Se actualiza desde Filtro de Periodo en Registro Diario</div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Unidades Vendidas — Semana <span class="auto-badge">AUTO</span></div>
+            <div class="field-input-wrap auto-field">
+              <input class="field-input" id="actual_u_vendidas_proy" type="number" min="0" step="1" placeholder="0" readonly>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Unidades Producidas — Semana <span class="auto-badge">AUTO</span></div>
+            <div class="field-input-wrap auto-field">
+              <input class="field-input" id="proy_uprod" type="number" min="0" step="1" placeholder="0" readonly>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Ingresos Semana ($) <span class="auto-badge">AUTO</span></div>
+            <div class="field-input-wrap auto-field"><span class="field-prefix">$</span>
+              <input class="field-input" id="proy_ingresos" type="number" min="0" step="0.01" placeholder="0.00" readonly>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Egresos Semana ($) <span class="auto-badge">AUTO</span></div>
+            <div class="field-input-wrap auto-field"><span class="field-prefix">$</span>
+              <input class="field-input" id="proy_egresos" type="number" min="0" step="0.01" placeholder="0.00" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="btn-save" onclick="guardarDatosActual()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Datos Ingresados
+          </button>
+        </div>
+
+        <div class="proy-kpis" style="margin-top:18px">
+          <div class="proy-kpi">
+            <div class="proy-kpi-label"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Flujo de Caja</div>
+            <div class="proy-kpi-val" id="actual_flujo_caja">—</div>
+            <div class="proy-kpi-sub">Efectivo real disponible</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Ingresos Reales</div>
+            <div class="proy-kpi-val" id="actual_ingresos">—</div>
+            <div class="proy-kpi-sub">Ingresos / Mínimo (P. Equilibrio)</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Egresos Reales</div>
+            <div class="proy-kpi-val" id="actual_egresos">—</div>
+            <div class="proy-kpi-sub">Egresos / Máximo (P. Equilibrio)</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--orange-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>Ganancia Real</div>
+            <div class="proy-kpi-val" id="actual_ganancia" style="color:var(--orange-text)">—</div>
+            <div class="proy-kpi-sub">Ganancia Neta del Periodo</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--blue-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Unidades Producidas</div>
+            <div class="proy-kpi-val" id="actual_u_prod" style="color:var(--blue-text)">—</div>
+            <div class="proy-kpi-sub">Producidas / Meta (P. Equilibrio)</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--purple-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>Crecimiento Total</div>
+            <div class="proy-kpi-val" id="actual_crec_total" style="color:var(--purple-text)">—</div>
+            <div class="proy-kpi-sub">Acumulado / Meta (P. Equilibrio)</div>
+          </div>
+        </div>
+
+        <div class="proy-table-wrap" style="margin-top:16px;overflow-x:auto">
+          <table class="proy-table" style="min-width:900px">
+            <thead>
+              <tr>
+                <th>MES</th>
+                <th>U. PRODUCIDAS</th>
+                <th>U. VENDIDAS</th>
+                <th>INGRESOS</th>
+                <th>EGRESOS</th>
+                <th>GANANCIA</th>
+                <th>MARGEN</th>
+                <th>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="actual_tabla_body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Objetivos y Metas Financieras</div>
+      <div class="objetivos-grid">
+        <div class="obj-card">
+          <div class="obj-title"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>Meta — Punto de Equilibrio</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-row"><span id="obj_pe_vendidas">0 vendidas</span><span id="obj_pe_pct">0%</span></div>
+            <div class="progress-bar"><div class="progress-fill" id="obj_pe_fill" style="width:0%"></div></div>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:6px" id="obj_pe_restantes">— restantes</div>
+        </div>
+        <div class="obj-card">
+          <div class="obj-title"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Recuperación de Costos</div>
+          <div class="obj-val" id="obj_rec_val">—</div>
+          <div class="obj-sub" id="obj_rec_diff">—</div>
+        </div>
+        <div class="obj-card">
+          <div class="obj-title"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>Inversión Futura</div>
+          <div class="obj-sub" style="margin-bottom:6px">
+            <input type="number" id="inv_futura_pct" value="0" min="0" max="100" step="1" class="inv-pct-input" oninput="calcProyecciones()">
+            <span id="inv_futura_pct_label">% de la ganancia neta</span>
+          </div>
+          <div class="obj-sub" style="font-size:11px;color:var(--text3);margin-bottom:4px">Capital necesario para reinversión =</div>
+          <div class="obj-val" id="inv_futura_val" style="color:var(--green-text)">—</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px">
+        <div class="section-title">Fabricación Mensual Consolidado</div>
+        <div class="bar-chart-wrap"><div class="bar-chart" id="bar_chart_fab"></div></div>
+        <div class="bar-chart-legend">
+          <div class="legend-item"><span class="legend-dot green"></span> Unidades producidas</div>
+          <div class="legend-item"><span class="legend-dot red"></span> Unidades despachadas</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px">
+        <div class="section-title">Facturación Mensual Consolidado</div>
+        <div class="bar-chart-wrap"><div class="bar-chart" id="bar_chart_fact"></div></div>
+        <div class="bar-chart-legend">
+          <div class="legend-item"><span class="legend-dot green"></span> Ingresos consolidados</div>
+          <div class="legend-item"><span class="legend-dot red"></span> Egresos consolidados</div>
+        </div>
+      </div>
+    </div><!-- /cf_escenario_actual -->
+
+    <!-- PANEL: PROYECCIONES FINANCIERAS -->
+    <div class="cf-panel" id="cf_proyecciones_financieras">
+      <div class="card proy-section">
+        <div class="section-title">Constructor de Escenarios</div>
+        <div class="proy-slider-group">
+          <span class="proy-slider-label">Tasa de Crecimiento Mensual (%)</span>
+          <input type="range" class="proy-slider" id="proy_tasa" min="1" max="50" value="10">
+          <span class="proy-slider-val" id="proy_tasa_val">10%</span>
+        </div>
+        <div class="proy-slider-group">
+          <span class="proy-slider-label">Meses a Proyectar</span>
+          <input type="range" class="proy-slider" id="proy_meses" min="1" max="12" value="6">
+          <span class="proy-slider-val" id="proy_meses_val">6</span>
+        </div>
+        <div class="proy-slider-group" style="gap:12px">
+          <div class="field-group" style="flex:1;min-width:160px">
+            <div class="field-label">Mes Base a Proyectar</div>
+            <div class="field-input-wrap">
+              <select class="field-input" id="proy_mes_base" onchange="actualizarSemanasProy()">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group" style="flex:1;min-width:160px">
+            <div class="field-label">Semana Base</div>
+            <div class="field-input-wrap">
+              <select class="field-input" id="proy_semana_base"><option value="1">Semana 1</option></select>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn-save" onclick="guardarProyeccion()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Proyección
+          </button>
+        </div>
+
+        <div class="proy-kpis" style="margin-top:18px">
+          <div class="proy-kpi">
+            <div class="proy-kpi-label"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Ingresos Proyectados</div>
+            <div class="proy-kpi-val" id="proy_ing_mes">—</div>
+            <div class="proy-kpi-sub">Mes Inicial / Mes Proyectado</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--orange-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>Ganancia Proyectada</div>
+            <div class="proy-kpi-val" id="proy_gan_mes" style="color:var(--orange-text)">—</div>
+            <div class="proy-kpi-sub">Mes Inicial / Mes Proyectado</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--blue-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Unidades a Producir</div>
+            <div class="proy-kpi-val" id="proy_up_mes" style="color:var(--blue-text)">—</div>
+            <div class="proy-kpi-sub">Mes Inicial / Mes Proyectado</div>
+          </div>
+          <div class="proy-kpi">
+            <div class="proy-kpi-label" style="color:var(--purple-text)"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>Crecimiento Estimado</div>
+            <div class="proy-kpi-val" id="proy_crec_total" style="color:var(--purple-text)">—</div>
+            <div class="proy-kpi-sub">Acumulado</div>
+          </div>
+        </div>
+
+        <div class="proy-table-wrap" style="margin-top:16px;overflow-x:auto">
+          <table class="proy-table" style="min-width:900px">
+            <thead>
+              <tr>
+                <th>MES A PROYECTAR</th>
+                <th>U. POR FABRICAR</th>
+                <th>U. VENDIDAS EST.</th>
+                <th>INGRESOS EST.</th>
+                <th>EGRESOS EST.</th>
+                <th>GANANCIA EST.</th>
+                <th>MARGEN EST.</th>
+                <th>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="proy_tabla_body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px">
+        <div class="section-title">Proyección Mensual — Escenario Futuro</div>
+        <div class="bar-chart-wrap"><div class="bar-chart" id="bar_chart"></div></div>
+        <div class="bar-chart-legend">
+          <div class="legend-item"><span class="legend-dot green"></span> Consolidados mes</div>
+          <div class="legend-item"><span class="legend-dot red"></span> Esperados mes a futuro</div>
+          <div class="legend-item"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand)"></span> Mes Base / Mes Proyectado</div>
+        </div>
+      </div>
+    </div><!-- /cf_proyecciones_financieras -->
+  </div><!-- /tab_proyecciones -->
+
+</div><!-- /app-wrapper -->
+
+<!-- MODAL COLABORADOR -->
+<div class="modal-overlay" id="modal_colab">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal_colab_title">Agregar Colaborador</span>
+      <button class="modal-close" onclick="cerrarModalColaborador()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form_colab" onsubmit="return false">
+        <div class="form-row"><label class="form-label">Nombre completo *</label><input class="form-input" id="colab_nombre" type="text" placeholder="Nombre del colaborador"></div>
+        <div class="form-row-2">
+          <div><label class="form-label">Área *</label><select class="form-select" id="colab_area" onchange="onAreaChange()"><option value="">Seleccionar área...</option><option value="comercial">Comercial (C.1)</option><option value="administracion">Administración (A.2)</option><option value="operaciones">Operaciones (O.3)</option></select></div>
+          <div><label class="form-label">División *</label><select class="form-select" id="colab_division" onchange="previewRecursos()"><option value="">Seleccionar división...</option></select></div>
+        </div>
+        <div class="form-section-title">Condiciones Laborales</div>
+        <div class="form-row-3">
+          <div><label class="form-label">Horas / Mes</label><input class="form-input" id="colab_horas" type="number" value="160" min="1" max="744"></div>
+          <div><label class="form-label">Salario / Hora ($)</label><input class="form-input" id="colab_salario" type="number" value="4.50" min="0.01" step="0.10"></div>
+          <div><label class="form-label">Estación <span class="auto-badge">AUTO</span></label><input class="form-input" id="colab_estacion" type="text" placeholder="EC-XX" readonly style="background:var(--auto-bg)"></div>
+        </div>
+        <div class="form-section-title">Recursos Asignados <span class="auto-badge">AUTO</span></div>
+        <div class="form-row"><label class="form-label">Recursos / Equipos</label><input class="form-input" id="colab_recursos" type="text" placeholder="Se asigna automáticamente según división"></div>
+        <div class="assigned-resources" id="recursos_auto"></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="cerrarModalColaborador()">Cancelar</button>
+      <button class="btn-primary" id="modal_colab_btn" onclick="guardarColaborador()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar Colaborador
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INVENTARIO -->
+<div class="modal-overlay" id="modal_inv">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal_inv_title">Agregar Ítem al Inventario</span>
+      <button class="modal-close" onclick="cerrarModalInventario()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form_inv" onsubmit="return false">
+        <div class="form-row-2">
+          <div><label class="form-label">Código (opcional — se genera AUTO)</label><input class="form-input" id="inv_id" type="text" placeholder="IO.3.X (auto)"></div>
+          <div><label class="form-label">Nombre del ítem *</label><input class="form-input" id="inv_nombre" type="text" placeholder="Ej: Compresor Industrial"></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Categoría *</label><select class="form-select" id="inv_cat"><option value="">Seleccionar...</option><option value="infraestructura">Infraestructura</option><option value="mobiliario">Mobiliario</option><option value="maquinaria">Maquinaria</option><option value="herramientas">Herramientas</option><option value="epp">EPP</option><option value="consumibles">Consumibles</option></select></div>
+          <div><label class="form-label">Área *</label><select class="form-select" id="inv_area"><option value="">Seleccionar...</option><option value="comercial">Comercial</option><option value="administracion">Administración</option><option value="operaciones">Operaciones</option></select></div>
+        </div>
+        <div class="form-row-3">
+          <div><label class="form-label">Cantidad *</label><input class="form-input" id="inv_cant" type="number" value="1" min="0.01" step="1"></div>
+          <div><label class="form-label">Precio Unitario ($) *</label><input class="form-input" id="inv_precio" type="number" value="" min="0.01" step="0.01" placeholder="0.00"></div>
+          <div><label class="form-label">IVA (%)</label><input class="form-input" id="inv_iva" type="number" value="15" min="0" max="100"></div>
+        </div>
+        <div style="font-size:13px;color:var(--green-text);font-weight:700;margin-top:8px;padding:8px 12px;background:var(--green-soft);border-radius:8px" id="inv_preview_total">Total estimado: $0.00</div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="cerrarModalInventario()">Cancelar</button>
+      <button class="btn-primary" id="modal_inv_btn" onclick="guardarInventario()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar al Inventario
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR REGISTRO DIARIO -->
+<div class="modal-overlay" id="modal_reg_edit">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Editar Registro Diario</span>
+      <button class="modal-close" onclick="cerrarModalRegistro()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form_reg_edit" onsubmit="return false">
+        <div class="form-row-2">
+          <div><label class="form-label">Fecha</label><input class="form-input" id="redit_fecha" type="date"></div>
+          <div><label class="form-label">Día</label><input class="form-input" id="redit_dia" type="text" placeholder="Ej: Lunes"></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Semana</label><input class="form-input" id="redit_semana" type="number" min="1" max="52"></div>
+          <div><label class="form-label">Mes</label><select class="form-input" id="redit_mes"><option value="0">—</option><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">U. Producidas</label><input class="form-input" id="redit_uprod" type="number" min="0" step="1"></div>
+          <div><label class="form-label">U. Vendidas</label><input class="form-input" id="redit_uvend" type="number" min="0" step="1"></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Precio Vta. Unit.</label><input class="form-input" id="redit_pvu" type="number" min="0" step="0.01"></div>
+          <div><label class="form-label">Costo Fab. Unit.</label><input class="form-input" id="redit_cfu" type="number" min="0" step="0.01"></div>
+        </div>
+        <div class="form-row-2">
+          <div><label class="form-label">Ingresos ($) — AUTO</label><input class="form-input" id="redit_ingresos" type="number" min="0" step="0.01" readonly tabindex="-1"></div>
+          <div><label class="form-label">Egresos ($) — AUTO</label><input class="form-input" id="redit_egresos" type="number" min="0" step="0.01" readonly tabindex="-1"></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="cerrarModalRegistro()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarEditRegistro()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar Cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SPLASH DE INICIO -->
+<div id="splash_inicio" style="
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg,#f8f9fb);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;
+">
+  <div style="text-align:center;max-width:420px;padding:0 24px">
+    <div style="font-size:36px;font-weight:800;letter-spacing:-1px;color:var(--brand,#2563eb);margin-bottom:4px">T.A.O.S.</div>
+    <div style="font-size:13px;color:var(--text3,#94a3b8);font-weight:500;letter-spacing:1px;text-transform:uppercase;margin-bottom:32px">Sistema de Costos y Presupuestos · Polaris</div>
+
+    <div style="background:var(--bg2,#f1f5f9);border:1px solid var(--border,#e2e8f0);border-radius:16px;padding:28px 24px;margin-bottom:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--text,#1e293b);margin-bottom:16px">¿Cómo desea iniciar?</div>
+
+      <button onclick="splashAccion('sync')" style="
+        width:100%;margin-bottom:10px;padding:12px 16px;
+        background:var(--brand,#2563eb);color:#fff;border:none;border-radius:10px;
+        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
+      ">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        <span><strong>Sincronizar ahora</strong><br><span style="font-size:11px;font-weight:400;opacity:.85">Cargar los datos más recientes guardados en este equipo</span></span>
+      </button>
+
+      <button onclick="splashAccion('ultimo_mes')" style="
+        width:100%;margin-bottom:10px;padding:12px 16px;
+        background:var(--bg,#fff);color:var(--text,#1e293b);border:1px solid var(--border,#e2e8f0);border-radius:10px;
+        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
+      ">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span><strong>Restaurar último mes</strong><br><span style="font-size:11px;font-weight:400;opacity:.7">Conservar solo registros del mes actual y anterior</span></span>
+      </button>
+
+      <button onclick="splashAccion('primer_guardado')" style="
+        width:100%;margin-bottom:10px;padding:12px 16px;
+        background:var(--bg,#fff);color:var(--text,#1e293b);border:1px solid var(--border,#e2e8f0);border-radius:10px;
+        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
+      ">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span><strong>Primer guardado del día</strong><br><span style="font-size:11px;font-weight:400;opacity:.7">Restaurar el estado inicial de hoy (si existe)</span></span>
+      </button>
+
+      <button onclick="splashAccion('fabrica')" style="
+        width:100%;padding:12px 16px;
+        background:var(--bg,#fff);color:var(--text3,#94a3b8);border:1px dashed var(--border,#e2e8f0);border-radius:10px;
+        font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
+      ">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span><strong>Valores de fábrica</strong><br><span style="font-size:11px;font-weight:400">Empezar con plantilla vacía (borrará todos los datos)</span></span>
+      </button>
+    </div>
+
+    <div style="font-size:11px;color:var(--text3,#94a3b8)">
+      Operador: <strong id="splash_operador_nombre">—</strong>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="taos_utilitarios.js"></script>
+<script src="taos_calculadora.js"></script>
+<script src="taos.js"></script>
+</body>
+</html>
