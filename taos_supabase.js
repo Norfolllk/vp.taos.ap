@@ -6,6 +6,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const SUPABASE_KEYS = ['colaboradores','inventario','registroDiario','presencia','estado_financiero','proyecciones','reg_config','calc_inputs'];
 
+function supaDot(state) {
+  const d = document.getElementById('supabase_dot');
+  if (!d) return;
+  d.className = 'supabase-dot ' + state;
+  d.title = state === 'connected' ? '☁️ Conectado' :
+            state === 'syncing'   ? '☁️ Sincronizando…' :
+            '☁️ Desconectado';
+}
+
 function supaHeaders() {
   return {
     'apikey': SUPABASE_ANON_KEY,
@@ -65,15 +74,18 @@ async function supaCargar() {
 }
 
 async function syncFromCloud() {
+  supaDot('syncing');
   try {
     const cloudData = await supaCargar();
     if (!cloudData || !cloudData.data) {
       if (typeof toast === 'function') toast('☁️ Nube vacía — sin datos para sincronizar');
+      supaDot('disconnected');
       return;
     }
     const localTs = parseInt(localStorage.getItem('taos_sync_timestamp') || '0');
     const cloudTs = new Date(cloudData.updated_at).getTime();
     if (cloudTs <= localTs) {
+      supaDot('connected');
       if (typeof toast === 'function') toast('☁️ Datos locales están al día');
       return;
     }
@@ -84,19 +96,24 @@ async function syncFromCloud() {
       }
     }
     localStorage.setItem('taos_sync_timestamp', String(cloudTs));
+    supaDot('connected');
     if (typeof toast === 'function') toast('☁️ Datos descargados de la nube — recargando…');
     setTimeout(() => location.reload(), 500);
   } catch(e) {
     console.error('Sync from cloud error:', e);
+    supaDot('disconnected');
     if (typeof toast === 'function') toast('☁️ Error de conexión con la nube', 'error');
   }
 }
 
 async function syncToCloud() {
+  supaDot('syncing');
   const ok = await supaGuardar();
   if (ok) {
+    supaDot('connected');
     if (typeof toast === 'function') toast('☁️ Subido a la nube ✓');
   } else {
+    supaDot('disconnected');
     if (typeof toast === 'function') toast('☁️ Error al subir a la nube', 'error');
   }
 }
@@ -121,10 +138,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (panel) {
     const btn = document.createElement('button');
     btn.className = 'guardar-panel-btn';
-    btn.textContent = '☁️ Sincronizar desde nube';
+    btn.innerHTML = '<span class="p-icon">☁️</span> Sincronizar desde nube';
     btn.onclick = function() {
       if (typeof cerrarTodosPaneles === 'function') cerrarTodosPaneles();
-      syncFromCloud();
+      btn.innerHTML = '<span class="spinner"></span> Sincronizando…';
+      syncFromCloud().finally(function() {
+        btn.innerHTML = '<span class="p-icon">☁️</span> Sincronizar desde nube';
+      });
     };
     panel.insertBefore(btn, panel.firstChild);
   }
