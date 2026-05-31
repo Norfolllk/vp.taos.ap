@@ -191,6 +191,85 @@ function calcPuntoEquilibrio() {
 }
 
 /* ════════════════════════════════════════════════════════════
+   9 — PRODUCTO (Costo Fab, PVD, PVP)
+   ════════════════════════════════════════════════════════════ */
+function calcProducto() {
+  const cfEl = document.getElementById('pr_costo_fab_input');
+  const pvdEl = document.getElementById('pr_pvd_input');
+  const pvpEl = document.getElementById('pr_pvp_input');
+  const distEl = document.getElementById('pr_margen_dist');
+
+  const cfManual = cfEl?.getAttribute('data-manual') === 'true';
+  const pvdManual = pvdEl?.getAttribute('data-manual') === 'true';
+
+  let costoFabUnit, pvdVal, margenDist, pvpVal;
+
+  if (!cfManual) {
+    const mp  = parseFloatSafe('di_mp');
+    const mod = parseFloatSafe('di_mod');
+    const cif = parseFloatSafe('di_cif');
+    const up  = parseInt(document.getElementById('cv_cantidad')?.value) || 1;
+    costoFabUnit = (mp + mod + cif) / up;
+  } else {
+    costoFabUnit = parseFloat(cfEl?.value) || 0;
+  }
+
+  if (!pvdManual) {
+    pvdVal = parseFloat(document.getElementById('cr_pvd')?.value) || 0;
+  } else {
+    pvdVal = parseFloat(pvdEl?.value) || 0;
+  }
+
+  margenDist = parseFloat(distEl?.value) || 25;
+  pvpVal = pvdVal * (1 + margenDist / 100);
+
+  setText('pr_costo_fab', '$' + costoFabUnit.toFixed(4));
+  setText('pr_pvd',       '$' + pvdVal.toFixed(2));
+  setText('pr_pvp',       '$' + pvpVal.toFixed(2));
+
+  if (!cfManual && cfEl) cfEl.value = costoFabUnit.toFixed(4);
+  if (!pvdManual && pvdEl) pvdEl.value = pvdVal.toFixed(2);
+  if (pvpEl) pvpEl.value = pvpVal.toFixed(2);
+}
+
+function onProductoCostoFabInput() {
+  const el = document.getElementById('pr_costo_fab_input');
+  if (!el) return;
+  const val = parseFloat(el.value);
+  if (val > 0) {
+    el.setAttribute('data-manual', 'true');
+    const up = parseInt(document.getElementById('cv_cantidad')?.value) || 1;
+    setAuto('cr_psc', val.toFixed(4));
+    setAuto('cv_costo_unit', val.toFixed(4));
+    setAuto('pe_costo_var_unit', val.toFixed(4));
+    cascadeUpdate('materia_prima');
+  } else {
+    el.setAttribute('data-manual', 'false');
+    calcProducto();
+  }
+}
+
+function onProductoPvdInput() {
+  const el = document.getElementById('pr_pvd_input');
+  if (!el) return;
+  const val = parseFloat(el.value);
+  if (val > 0) {
+    el.setAttribute('data-manual', 'true');
+    const psc = parseFloat(document.getElementById('cr_psc')?.value) || 0;
+    if (psc > 0 && val > psc) {
+      const margen = (1 - psc / val) * 100;
+      setAuto('cr_margen', margen.toFixed(1));
+      setAuto('pe_precio_venta', val.toFixed(2));
+      cascadeUpdate('costeo_receta');
+    }
+    calcProducto();
+  } else {
+    el.setAttribute('data-manual', 'false');
+    calcProducto();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
    CASCADE UPDATE — Propaga cambios entre calculadoras
    ════════════════════════════════════════════════════════════ */
 function cascadeUpdate(origin) {
@@ -288,6 +367,7 @@ function syncAllCalculators() {
   calcCosteoReceta();
   calcMargenGanancia();
   calcPuntoEquilibrio();
+  calcProducto();
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -340,10 +420,13 @@ function calcProyecciones() {
   const s       = TAOS.state;
 
   const tasa    = tasaPct / 100;
-  const sinDatos = !(s.colaboradores || []).length && !(s.registroDiario || []).length && (s.unidadesVendidas || 0) === 0;
-  const ingBase = sinDatos ? 0 : (s.ingresos           || 1445);
-  const egBase  = sinDatos ? 0 : (s.egresos            || 1190);
-  const upBase  = sinDatos ? 0 : (s.unidadesProducidas || 200);
+  const actIng  = parseFloat(document.getElementById('proy_ingresos')?.value) || 0;
+  const actEg   = parseFloat(document.getElementById('proy_egresos')?.value)  || 0;
+  const actUp   = parseInt(document.getElementById('proy_uprod')?.value)      || 0;
+  const sinDatos = actIng === 0 && actEg === 0 && actUp === 0;
+  const ingBase = sinDatos ? 0 : (actIng || 19327);
+  const egBase  = sinDatos ? 0 : (actEg  || 12496);
+  const upBase  = sinDatos ? 0 : (actUp  || 32000);
 
   const rows = [];
   let ingPrev = ingBase, egPrev = egBase, upPrev = upBase;
@@ -410,19 +493,19 @@ function calcProyecciones() {
     const fill = document.getElementById('obj_pe_fill');
     if (fill) fill.style.width = '0%';
   } else {
-    const peUnidades = s.puntoEquilUnidades != null ? s.puntoEquilUnidades : 2150;
-    const vendidas   = s.unidadesVendidas   || 170;
-    const restantes  = Math.max(0, peUnidades - vendidas);
-    const progPct    = peUnidades > 0 ? Math.min(100, (vendidas / peUnidades) * 100) : 0;
+    const metaDiaria = 200;
+    const vendidas   = s.unidadesVendidas   || 0;
+    const restantes  = Math.max(0, metaDiaria - vendidas);
+    const progPct    = metaDiaria > 0 ? Math.min(100, (vendidas / metaDiaria) * 100) : 0;
 
     setText('obj_pe_pct',       progPct.toFixed(0) + '%');
     setText('obj_pe_vendidas',  vendidas.toLocaleString('es-EC') + ' vendidas');
-    setText('obj_pe_restantes', restantes.toLocaleString('es-EC') + ' restantes');
+    setText('obj_pe_restantes', restantes.toLocaleString('es-EC') + ' restantes de ' + metaDiaria);
 
     const fill = document.getElementById('obj_pe_fill');
     if (fill) fill.style.width = progPct.toFixed(1) + '%';
 
-    const diff = (s.puntoEquilDinero != null ? s.puntoEquilDinero : 18275) - ingBase;
+    const diff = (s.puntoEquilDinero != null ? s.puntoEquilDinero : 1700) - ingBase;
     setText('obj_rec_val',  fmt$(ingBase));
     setText('obj_rec_diff', diff > 0
       ? 'Faltan ' + fmt$(diff) + ' para alcanzar el equilibrio'
@@ -482,20 +565,20 @@ function _renderBarChartInto(chartId, rows, valA, valB) {
 }
 
 function actualizarProyecciones() {
-  if (TAOS.currentTab === 'proyecciones') calcProyecciones();
+  calcProyecciones();
 }
 
 /* Rellena KPIs de Escenario Actual */
 function actualizarKPIsActuales() {
   const s   = TAOS.state;
   const sinDatos = !(s.colaboradores || []).length && !(s.registroDiario || []).length && (s.unidadesVendidas || 0) === 0;
-  const ing = sinDatos ? 0 : (s.ingresos || 1445);
-  const eg  = sinDatos ? 0 : (s.egresos  || 1190);
+  const ing = sinDatos ? 0 : (s.ingresos || 19327);
+  const eg  = sinDatos ? 0 : (s.egresos  || 12496);
   const gan = ing - eg;
-  const up  = sinDatos ? 0 : (s.unidadesProducidas || 200);
-  const uv  = sinDatos ? 0 : (s.unidadesVendidas   || 170);
-  const peD = sinDatos ? 0 : (s.puntoEquilDinero   || 18275);
-  const peU = sinDatos ? 0 : (s.puntoEquilUnidades || 2150);
+  const up  = sinDatos ? 0 : (s.unidadesProducidas || 0);
+  const uv  = sinDatos ? 0 : (s.unidadesVendidas   || 0);
+  const peD = sinDatos ? 0 : (s.puntoEquilDinero   || 1700);
+  const peU = sinDatos ? 0 : (s.puntoEquilUnidades || 200);
   const flujo = gan >= 0 ? gan : 0;
 
   setText('actual_flujo_caja', sinDatos ? '—' : fmt$(flujo));
@@ -504,7 +587,7 @@ function actualizarKPIsActuales() {
   setText('actual_ganancia',   sinDatos ? '—' : fmt$(gan));
   setText('actual_u_prod',     sinDatos ? '— / —' : up.toLocaleString('es-EC') + ' / ' + peU.toLocaleString('es-EC'));
 
-  const PE_UNIDADES = 200;
+  const PE_UNIDADES = s.puntoEquilUnidades || 200;
   const tasaReal = !sinDatos && uv > 0
     ? ((uv - PE_UNIDADES) / PE_UNIDADES * 100)
     : 0;
@@ -569,25 +652,44 @@ function editarEscenarioActual(mes) {
 
 /* Guardar consolidado */
 function guardarConsolidado() {
-  const uVendidas   = document.getElementById('actual_u_vendidas')?.value || 0;
-  const uProducidas = document.getElementById('eq_uprod')?.value      || 0;
-  const ingresos    = document.getElementById('eq_ingresos')?.value   || 0;
-  const egresos     = document.getElementById('eq_egresos')?.value    || 0;
-  TAOS.state.unidadesVendidas   = parseInt(uVendidas) || TAOS.state.unidadesVendidas;
-  if (uProducidas > 0) TAOS.state.unidadesProducidas = parseInt(uProducidas);
-  if (ingresos > 0)    TAOS.state.ingresos            = parseFloat(ingresos);
-  if (egresos > 0)     TAOS.state.egresos             = parseFloat(egresos);
-  TAOS.state.ganancia = TAOS.state.ingresos - TAOS.state.egresos;
-  guardar('estado_financiero', {
-    ingresos: TAOS.state.ingresos,
-    egresos:  TAOS.state.egresos,
-    ganancia: TAOS.state.ganancia,
-    unidadesVendidas: TAOS.state.unidadesVendidas,
-    unidadesProducidas: TAOS.state.unidadesProducidas,
-  });
-  actualizarResumenEjecutivo();
-  actualizarKPIsActuales();
-  syncAllCalculators();
+  const eqFechaEl = document.getElementById('eq_fecha');
+  if (eqFechaEl && !eqFechaEl.value) eqFechaEl.value = new Date().toISOString().split('T')[0];
+  if (typeof actualizarSemanasReg === 'function') actualizarSemanasReg();
+  const eqFecha = eqFechaEl?.value;
+  const date = eqFecha ? new Date(eqFecha + 'T12:00:00') : new Date();
+  if (isNaN(date.getTime())) { toast('Fecha inválida', 'error'); return; }
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const diaEl = document.getElementById('reg_dia');
+  if (diaEl) diaEl.value = dias[date.getDay()];
+  const mesEl = document.getElementById('reg_mes');
+  if (mesEl) mesEl.value = date.getMonth() + 1;
+  const semanaEl = document.getElementById('reg_semana');
+  if (semanaEl) {
+    const sy = new Date(date.getFullYear(), 0, 1);
+    const diasDesde = Math.floor((date - sy) / 86400000);
+    const sem = Math.ceil((diasDesde + sy.getDay() + 1) / 7);
+    const opt = semanaEl.querySelector(`option[value="${sem}"]`);
+    if (opt) semanaEl.value = sem;
+  }
+  const regFechaEl = document.getElementById('reg_fecha');
+  if (regFechaEl) regFechaEl.value = date.toISOString().split('T')[0];
+  agregarRegistroDiario();
+  /* Sync filter to current date */
+  const filtroMesEl = document.getElementById('reg_filtro_mes');
+  if (filtroMesEl) {
+    filtroMesEl.value = date.getMonth() + 1;
+    if (typeof actualizarSemanasFiltro === 'function') actualizarSemanasFiltro();
+    const filtroSemEl = document.getElementById('reg_filtro_semana');
+    if (filtroSemEl) {
+      const sy = new Date(date.getFullYear(), 0, 1);
+      const diasDesde = Math.floor((date - sy) / 86400000);
+      const week = Math.ceil((diasDesde + sy.getDay() + 1) / 7);
+      const opt = filtroSemEl.querySelector(`option[value="${week}"]`);
+      if (opt) filtroSemEl.value = week;
+    }
+  }
+  if (typeof renderCalendarioRegistro === 'function') renderCalendarioRegistro();
+  if (typeof guardarSnapshot === 'function') guardarSnapshot('progreso');
   toast('Progreso guardado ✓');
 }
 
@@ -706,10 +808,29 @@ function preLlenarFechaRegistro(fechaStr) {
   if (mesEl) mesEl.value = d.getMonth() + 1;
   if (typeof actualizarSemanasReg === 'function') actualizarSemanasReg();
   const startYear = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil(((d - startYear) / 86400000 + startYear.getDay() + 1) / 7);
+  const diasDesde = Math.floor((d - startYear) / 86400000);
+  const week = Math.ceil((diasDesde + startYear.getDay() + 1) / 7);
   const semEl = document.getElementById('reg_semana');
   if (semEl) { const opt = semEl.querySelector(`option[value="${week}"]`); if (opt) semEl.value = week; }
-  // Scroll / navigate to registro tab
+  /* Auto-load existing data for this date */
+  const regs = TAOS.state.registroDiario || [];
+  const existing = regs.find(r => r.fecha === fechaStr);
+  const uprodEl = document.getElementById('reg_uprod_form');
+  const uvendEl = document.getElementById('reg_uvend_form');
+  const ingEl = document.getElementById('reg_ingresos_form');
+  const egEl = document.getElementById('reg_egresos_form');
+  if (existing) {
+    if (uprodEl) uprodEl.value = existing.uprod || '';
+    if (uvendEl) uvendEl.value = existing.uvend || '';
+    if (ingEl) ingEl.value = existing.ing || '';
+    if (egEl) egEl.value = existing.eg || '';
+  } else {
+    if (uprodEl) uprodEl.value = '';
+    if (uvendEl) uvendEl.value = '';
+    if (ingEl) ingEl.value = '';
+    if (egEl) egEl.value = '';
+  }
+  actualizarPreviewRegistro();
   const tabBtn = document.querySelector('.main-tab[data-tab="registro"]');
   if (tabBtn) tabBtn.click();
 }

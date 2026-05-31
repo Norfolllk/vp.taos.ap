@@ -32,7 +32,7 @@
           Guardar Sistema
         </button>
         <div id="panel_guardar" class="guardar-panel" style="display:none">
-          <button class="guardar-panel-btn" onclick="guardarSistemaLocal()">💾 Guardar Localmente</button>
+          <button class="guardar-panel-btn" onclick="guardarSistemaLocal()">💾 Guardar Día</button>
           <button class="guardar-panel-btn" onclick="guardarCierreCaja()">🔒 Cierre de Caja</button>
           <button class="guardar-panel-btn" onclick="guardarRespaldo()">📁 Guardar Respaldo</button>
           <button class="guardar-panel-btn" onclick="document.getElementById('file_restaurar').click()">📂 Restaurar Respaldo</button>
@@ -252,18 +252,18 @@
         <div class="eq-big" id="eq_pct">—</div>
         <div class="eq-meta">
           <div class="eq-meta-item">
-            <label>P.E. Unidades</label>
+            <label>P.E. Unidades Acumuladas</label>
             <span id="eq_pe_unidades">—</span>
           </div>
           <div class="eq-meta-item">
-            <label>P.E. Dinero</label>
+            <label>P.E. Dinero Acumulado</label>
             <span id="eq_pe_dinero">—</span>
           </div>
           <div class="eq-fields-grid">
             <div class="field-group">
               <div class="field-label">Unidades Vendidas Hoy</div>
               <div class="field-input-wrap">
-                <input class="field-input" id="actual_u_vendidas" type="number" value="170" min="0" step="1">
+                <input class="field-input" id="actual_u_vendidas" type="number" min="0" step="1" placeholder="0">
               </div>
             </div>
             <div class="field-group">
@@ -362,16 +362,17 @@
       <button class="calc-tab" data-calc="costeo_receta">Costeo de Receta</button>
       <button class="calc-tab" data-calc="margen_ganancia">Margen de Ganancia</button>
       <button class="calc-tab" data-calc="punto_equilibrio">Punto de Equilibrio</button>
+      <button class="calc-tab" data-calc="producto">Producto</button>
     </div>
 
     <div class="calc-panel active" id="calc_costos_fijos">
       <div class="calc-result-card"><div><div class="calc-result-label">Total Costos Fijos</div><div class="calc-result-value" id="cf_total">$0.00</div></div></div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Arriendo / Alquiler ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_arriendo" type="number" value="600" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Servicios Básicos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_servicios" type="number" value="300" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Nómina Total <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_nomina_val" type="number" value="7040" min="0" step="50"></div></div>
-        <div class="field-group"><div class="field-label">Depreciación Maquinaria <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_deprec" type="number" value="610" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Consumibles / Suministros ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_consumibles" type="number" value="200" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Arriendo / Alquiler ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_arriendo" type="number" value="500" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Servicios Básicos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_servicios" type="number" value="89" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Nómina Total <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_nomina_val" type="number" value="5200" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">Depreciación Maquinaria <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cf_deprec" type="number" value="244" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Consumibles / Suministros ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="cf_consumibles" type="number" value="1300" min="0" step="10"></div></div>
       </div>
       <div class="auto-note">Nómina y Depreciación se sincronizan automáticamente desde Control Financiero.</div>
     </div>
@@ -379,8 +380,8 @@
     <div class="calc-panel" id="calc_costos_variables">
       <div class="calc-result-card"><div><div class="calc-result-label">Total Costos Variables</div><div class="calc-result-value" id="cv_total">$0.00</div></div></div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Costo Unitario Variable <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cv_costo_unit" type="number" value="3.294" min="0" step="0.001"></div></div>
-        <div class="field-group"><div class="field-label">Cantidad de Unidades</div><div class="field-input-wrap"><input class="field-input" id="cv_cantidad" type="number" value="200" min="0" step="1" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Costo Unitario Variable <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cv_costo_unit" type="number" value="0.39" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Cantidad de Unidades</div><div class="field-input-wrap"><input class="field-input" id="cv_cantidad" type="number" value="1600" min="0" step="1" style="padding-left:10px"></div></div>
       </div>
       <div class="auto-note">Costo Unitario se sincroniza desde Materia Prima.</div>
     </div>
@@ -392,11 +393,11 @@
       </div>
       <div class="calc-result-card" style="margin-top:8px"><div><div class="calc-result-label">Total Estructura de Costos</div><div class="calc-result-value" id="di_total">$0.00</div></div></div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Materia Prima ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_mp" type="number" value="560" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Mano de Obra Directa <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="di_mod" type="number" value="7040" min="0" step="50"></div></div>
-        <div class="field-group"><div class="field-label">CIF — Costos Ind. de Fabricación ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_cif" type="number" value="200" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Gastos Adm. Generales ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gadm" type="number" value="900" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Gastos de Ventas ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gven" type="number" value="290" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Materia Prima ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_mp" type="number" value="247" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Mano de Obra Directa <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="di_mod" type="number" value="3857" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">CIF — Costos Ind. de Fabricación ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_cif" type="number" value="31" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Gastos Adm. Generales ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gadm" type="number" value="739" min="0" step="10"></div></div>
+        <div class="field-group"><div class="field-label">Gastos de Ventas ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="di_gven" type="number" value="500" min="0" step="10"></div></div>
       </div>
       <div class="auto-note">Mano de Obra se sincroniza automáticamente desde la calculadora de M.O.</div>
     </div>
@@ -404,9 +405,9 @@
     <div class="calc-panel" id="calc_materia_prima">
       <div class="calc-result-card dark"><div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.6);margin-bottom:4px">Costo Materia Prima / Unidad</div><div style="font-size:32px;font-weight:700;font-family:var(--mono);color:var(--brand)" id="mp_total_disp">$0.0000</div></div></div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Mezcla Base ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_mezcla" type="number" value="3.00" min="0" step="0.001"></div></div>
-        <div class="field-group"><div class="field-label">Congelante / Aditivos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_congelante" type="number" value="0.25" min="0" step="0.001"></div></div>
-        <div class="field-group"><div class="field-label">Merma (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="mp_merma" type="number" value="1.33" min="0" max="100" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Mezcla Base ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_mezcla" type="number" value="0.13" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Congelante / Aditivos ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mp_congelante" type="number" value="0.01" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Merma (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="mp_merma" type="number" value="2.04" min="0" max="100" step="0.01"></div></div>
       </div>
       <div class="auto-note">El resultado se propaga automáticamente a Costeo de Receta, Costos Variables y Punto de Equilibrio.</div>
     </div>
@@ -414,9 +415,9 @@
     <div class="calc-panel" id="calc_mano_obra">
       <div class="calc-result-card" style="background:var(--purple-soft);border-color:#c4a8ff"><div><div class="calc-result-label" style="color:var(--purple-text)">Total Mano de Obra</div><div class="calc-result-value" id="mo_total" style="color:var(--purple-text)">$0.00</div></div></div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Salario por Hora ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mo_salario" type="number" value="2.30" min="0.01" step="0.10"></div></div>
-        <div class="field-group"><div class="field-label">Horas Trabajadas / Mes</div><div class="field-input-wrap"><input class="field-input" id="mo_horas" type="number" value="200" min="1" max="744" step="1" style="padding-left:10px"></div></div>
-        <div class="field-group"><div class="field-label">N° Trabajadores <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><input class="field-input" id="mo_trabajadores" type="number" value="4" min="1" step="1" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">Salario por Hora ($)</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mo_salario" type="number" value="3.50" min="0.01" step="0.10"></div></div>
+        <div class="field-group"><div class="field-label">Horas Trabajadas / Mes</div><div class="field-input-wrap"><input class="field-input" id="mo_horas" type="number" value="176" min="1" max="744" step="1" style="padding-left:10px"></div></div>
+        <div class="field-group"><div class="field-label">N° Trabajadores <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><input class="field-input" id="mo_trabajadores" type="number" value="13" min="1" step="1" style="padding-left:10px"></div></div>
       </div>
       <div class="auto-note">N° Trabajadores se sincroniza automáticamente con el personal de Operaciones en Nómina.</div>
     </div>
@@ -429,8 +430,8 @@
         </div>
       </div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">PSC — Precio de Costo <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_psc" type="number" value="3.294" min="0" step="0.001"></div></div>
-        <div class="field-group"><div class="field-label">Margen de Ganancia (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="cr_margen" type="number" value="61.3" min="0" max="99" step="0.1"></div></div>
+        <div class="field-group"><div class="field-label">PSC — Precio de Costo <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_psc" type="number" value="0.39" min="0" step="0.001"></div></div>
+        <div class="field-group"><div class="field-label">Margen de Ganancia (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="cr_margen" type="number" value="35.4" min="0" max="99" step="0.1"></div></div>
         <div class="field-group"><div class="field-label">IVA (%)</div><div class="field-input-wrap"><span class="field-prefix">%</span><input class="field-input" id="cr_iva" type="number" value="15" min="0" max="100" step="1"></div></div>
         <div class="field-group"><div class="field-label">PVD — Precio de Venta s/IVA <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_pvd" type="number" readonly></div></div>
         <div class="field-group"><div class="field-label">PVD con IVA <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="cr_pvdiva" type="number" readonly></div></div>
@@ -447,7 +448,7 @@
       <div class="calc-fields">
         <div class="field-group"><div class="field-label">Ingresos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="mg_ingresos" type="number" value="0" min="0" step="10"></div></div>
         <div class="field-group"><div class="field-label">Egresos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="mg_egresos" type="number" value="0" min="0" step="10"></div></div>
-        <div class="field-group"><div class="field-label">Inversión Registrada</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mg_inversion" type="number" value="5000" min="0" step="100"></div></div>
+        <div class="field-group"><div class="field-label">Inversión Registrada</div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="mg_inversion" type="number" value="23200" min="0" step="100"></div></div>
       </div>
       <div class="auto-note">Ingresos y Egresos se sincronizan automáticamente con el Registro Diario. Sobreescribibles manualmente.</div>
     </div>
@@ -458,13 +459,39 @@
         <div style="text-align:right"><div style="font-size:11px;color:var(--red);font-weight:600;margin-bottom:2px">MARGEN DE CONTRIBUCIÓN</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--red)" id="pe_margen_contrib">$0.00</div></div>
       </div>
       <div class="calc-fields">
-        <div class="field-group"><div class="field-label">Costos Fijos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costos_fijos" type="number" value="10750" min="0" step="50"></div></div>
-        <div class="field-group"><div class="field-label">Precio de Venta Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_precio_venta" type="number" value="8.50" min="0.01" step="0.01"></div></div>
-        <div class="field-group"><div class="field-label">Costo Variable Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costo_var_unit" type="number" value="3.50" min="0" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Costos Fijos Totales <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costos_fijos" type="number" value="7333" min="0" step="50"></div></div>
+        <div class="field-group"><div class="field-label">Precio de Venta Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_precio_venta" type="number" value="0.60" min="0.01" step="0.01"></div></div>
+        <div class="field-group"><div class="field-label">Costo Variable Unitario <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_costo_var_unit" type="number" value="0.39" min="0" step="0.01"></div></div>
         <div class="field-group"><div class="field-label">Unidades para Cubrir Costos <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><input class="field-input" id="pe_unidades" type="number" value="0" readonly style="padding-left:10px"></div></div>
         <div class="field-group"><div class="field-label">Dinero para Cubrir Costos <span class="auto-badge">AUTO</span></div><div class="field-input-wrap auto-field"><span class="field-prefix">$</span><input class="field-input" id="pe_dinero" type="number" value="0" readonly></div></div>
       </div>
       <div class="auto-note">Costos Fijos → Nómina + Inventario. Precio → Costeo de Receta. Costo Variable → Materia Prima.</div>
+    </div>
+
+    <div class="calc-panel" id="calc_producto">
+      <div class="calc-result-card dark" style="flex-direction:column;gap:4px;padding:18px 22px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">
+          <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.6);margin-bottom:4px">Costo de Fabricación x Unidad</div><div style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--brand)" id="pr_costo_fab">$0.0000</div></div>
+          <div style="text-align:right"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.5);margin-bottom:4px">PVD (Distribuidor)</div><div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--green-text)" id="pr_pvd">$0.00</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)">
+          <div><span style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px">PVP (Público)</span> <strong style="font-size:22px;font-family:var(--mono);color:var(--orange-text);margin-left:8px" id="pr_pvp">$0.00</strong></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:rgba(255,255,255,.5)">Margen Distribuidor</span><input type="number" id="pr_margen_dist" value="25" min="0" max="100" step="1" style="width:50px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;text-align:center"><span style="font-size:11px;color:var(--text3)">%</span></div>
+        </div>
+      </div>
+      <div class="calc-fields">
+        <div class="field-group"><div class="field-label">Costo Fabricación <span class="auto-badge">AUTO</span></div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="pr_costo_fab_input" type="number" step="0.0001" data-manual="false"></div></div>
+        <div class="field-group"><div class="field-label">PVD — Precio Venta Distribuidor <span class="auto-badge">AUTO</span></div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="pr_pvd_input" type="number" step="0.01" data-manual="false"></div></div>
+        <div class="field-group"><div class="field-label">PVP — Precio Venta Público <span class="auto-badge">AUTO</span></div><div class="field-input-wrap"><span class="field-prefix">$</span><input class="field-input" id="pr_pvp_input" type="number" step="0.01" data-manual="false"></div></div>
+      </div>
+      <div class="auto-note">Costo de Fabricación = MP + MOD + CIF. PVD desde Costeo de Receta. PVP = PVD × (1 + Margen Distribuidor).</div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;margin-bottom:6px">
+      <button class="btn-primary" onclick="syncAllCalculators();calcProducto();toast('Valores actualizados ✓')" style="padding:10px 32px;font-size:14px">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px;vertical-align:middle"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Actualizar Valores
+      </button>
     </div>
   </div><!-- /tab_calculadoras -->
 
@@ -558,6 +585,7 @@
       </div>
 
       <!-- Resumen del periodo filtrado -->
+      <div id="reg_periodo_vacio" style="display:block;margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:10px;border:1px solid var(--border);color:var(--text3);font-size:13px;text-align:center">No hay registros en esta semana</div>
       <div id="reg_periodo_resumen" style="display:none;margin-top:14px;padding:12px 16px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)">
         <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px" id="reg_periodo_titulo">—</div>
         <div style="display:flex;gap:20px;flex-wrap:wrap">
@@ -1143,60 +1171,30 @@
 </div>
 
 <!-- SPLASH DE INICIO -->
-<div id="splash_inicio" style="
-  position:fixed;inset:0;z-index:9999;
-  background:var(--bg,#f8f9fb);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:0;
-">
-  <div style="text-align:center;max-width:420px;padding:0 24px">
-    <div style="font-size:36px;font-weight:800;letter-spacing:-1px;color:var(--brand,#2563eb);margin-bottom:4px">T.A.O.S.</div>
-    <div style="font-size:13px;color:var(--text3,#94a3b8);font-weight:500;letter-spacing:1px;text-transform:uppercase;margin-bottom:32px">Sistema de Costos y Presupuestos · Polaris</div>
-
-    <div style="background:var(--bg2,#f1f5f9);border:1px solid var(--border,#e2e8f0);border-radius:16px;padding:28px 24px;margin-bottom:20px">
-      <div style="font-size:14px;font-weight:700;color:var(--text,#1e293b);margin-bottom:16px">¿Cómo desea iniciar?</div>
-
-      <button onclick="splashAccion('sync')" style="
-        width:100%;margin-bottom:10px;padding:12px 16px;
-        background:var(--brand,#2563eb);color:#fff;border:none;border-radius:10px;
-        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
-      ">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-        <span><strong>Sincronizar ahora</strong><br><span style="font-size:11px;font-weight:400;opacity:.85">Cargar los datos más recientes guardados en este equipo</span></span>
-      </button>
-
-      <button onclick="splashAccion('ultimo_mes')" style="
-        width:100%;margin-bottom:10px;padding:12px 16px;
-        background:var(--bg,#fff);color:var(--text,#1e293b);border:1px solid var(--border,#e2e8f0);border-radius:10px;
-        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
-      ">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span><strong>Restaurar último mes</strong><br><span style="font-size:11px;font-weight:400;opacity:.7">Conservar solo registros del mes actual y anterior</span></span>
-      </button>
-
-      <button onclick="splashAccion('primer_guardado')" style="
-        width:100%;margin-bottom:10px;padding:12px 16px;
-        background:var(--bg,#fff);color:var(--text,#1e293b);border:1px solid var(--border,#e2e8f0);border-radius:10px;
-        font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
-      ">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span><strong>Primer guardado del día</strong><br><span style="font-size:11px;font-weight:400;opacity:.7">Restaurar el estado inicial de hoy (si existe)</span></span>
-      </button>
-
-      <button onclick="splashAccion('fabrica')" style="
-        width:100%;padding:12px 16px;
-        background:var(--bg,#fff);color:var(--text3,#94a3b8);border:1px dashed var(--border,#e2e8f0);border-radius:10px;
-        font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left
-      ">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-        <span><strong>Valores de fábrica</strong><br><span style="font-size:11px;font-weight:400">Empezar con plantilla vacía (borrará todos los datos)</span></span>
-      </button>
-    </div>
-
-    <div style="font-size:11px;color:var(--text3,#94a3b8)">
-      Operador: <strong id="splash_operador_nombre">—</strong>
-    </div>
+<div id="splash_inicio">
+  <div class="splash-wordmark">T.A.O.S.</div>
+  <div class="splash-subtitle">Sistema de Costos y Presupuestos &middot; Polaris</div>
+  <div class="splash-divider"></div>
+  <div class="splash-card">
+    <div class="splash-card-title">¿Cómo desea iniciar?</div>
+    <button class="splash-btn ghost-btn" onclick="splashAccion('fabrica')">
+      <div class="splash-btn-icon" style="border-style:dashed"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></div>
+      <div class="splash-btn-text"><strong>Iniciar tablero nuevo</strong><span>Valores de fábrica &mdash; borrará todos los datos</span></div>
+    </button>
+    <button class="splash-btn primary-btn" onclick="splashAccion('sync')">
+      <div class="splash-btn-icon"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg></div>
+      <div class="splash-btn-text"><strong>Continuar tablero actual</strong><span>Sincronizar desde el último guardado disponible</span></div>
+    </button>
+    <button class="splash-btn" onclick="splashAccion('primer_guardado')">
+      <div class="splash-btn-icon"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="splash-btn-text"><strong>Reiniciar tablero de hoy</strong><span>Restaurar el estado inicial del día de hoy</span></div>
+    </button>
+    <button class="splash-btn" onclick="splashAccion('ultimo_mes')">
+      <div class="splash-btn-icon"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div class="splash-btn-text"><strong>Restaurar último mes</strong><span>Conservar solo registros del mes actual y anterior</span></div>
+    </button>
   </div>
+  <div class="splash-footer">Operador activo &nbsp;&middot;&nbsp; <strong id="splash_operador_nombre">&mdash;</strong></div>
 </div>
 
 <div class="toast" id="toast"></div>

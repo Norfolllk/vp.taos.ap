@@ -22,8 +22,8 @@ const TAOS = {
     margenGanancia:      0,
     precioVenta:         8.5,
     precioVentaConIva:   9.42,
-    puntoEquilUnidades:  2150,
-    puntoEquilDinero:    18275,
+    puntoEquilUnidades:  200,
+    puntoEquilDinero:    1700,
     precioVentaUnitReg:  0.80,
     costoFabUnitReg:     0.00,
     unidadesProducidas:  0,
@@ -41,6 +41,20 @@ const TAOS = {
   editingInvIdx:   null,
   editingRegId:    null,
 };
+
+/* IDs de inputs de calculadoras que se persisten en localStorage */
+const CALC_INPUT_IDS = [
+  'cf_arriendo','cf_servicios','cf_nomina_val','cf_deprec','cf_consumibles',
+  'cv_costo_unit','cv_cantidad',
+  'di_mp','di_mod','di_cif','di_gadm','di_gven',
+  'mp_mezcla','mp_merma','mp_congelante',
+  'mo_salario','mo_horas','mo_trabajadores',
+  'cr_psc','cr_margen','cr_iva','mg_inversion','mg_ingresos','mg_egresos',
+  'pe_costos_fijos','pe_precio_venta','pe_costo_var_unit',
+  'actual_u_vendidas','actual_u_vendidas_proy','actual_tasa_crec','proy_uprod',
+  'eq_uprod','eq_ingresos','eq_egresos',
+  'pr_costo_fab_input','pr_pvd_input','pr_pvp_input',
+];
 
 /* ════════════════════════════════════════════════════════════
    DATOS INICIALES — COLABORADORES
@@ -241,9 +255,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const estadoGuardado = cargar('estado_financiero', null);
   if (estadoGuardado) {
-    Object.assign(TAOS.state, estadoGuardado);
+    const ALLOWED = ['ingresos','egresos','ganancia','unidadesVendidas','unidadesProducidas','periodo','semana'];
+    for (const k of ALLOWED) {
+      if (k in estadoGuardado) TAOS.state[k] = estadoGuardado[k];
+    }
   }
 
+  const proyeccionesGuardadas = cargar('proyecciones', null);
+  if (proyeccionesGuardadas) TAOS.state.proyecciones = proyeccionesGuardadas;
+
+  const regConfigGuardada = cargar('reg_config', null);
+  if (regConfigGuardada) {
+    TAOS.state.precioVentaUnitReg = regConfigGuardada.precioVentaUnitReg || 0;
+    TAOS.state.costoFabUnitReg    = regConfigGuardada.costoFabUnitReg    || 0;
+  }
+
+  cargarCalcInputs();
   sincronizarDesdeRegistro();
 
   /* Load operator name into profile button and lock after first set */
@@ -278,10 +305,25 @@ document.addEventListener('DOMContentLoaded', function () {
     if (typeof actualizarSemanasProy   === 'function') actualizarSemanasProy();
     if (typeof actualizarSemanasActual === 'function') actualizarSemanasActual();
     if (typeof actualizarSemanasReg    === 'function') actualizarSemanasReg();
-    if (typeof actualizarSemanasFiltro === 'function') actualizarSemanasFiltro();
-  }, 120);
+    /* Initialize filter to current month/week — triggers onChangeFiltroMes */
+    const filtroMesEl = document.getElementById('reg_filtro_mes');
+    if (filtroMesEl) {
+      const hoy = new Date();
+      filtroMesEl.value = hoy.getMonth() + 1;
+      if (typeof onChangeFiltroMes === 'function') onChangeFiltroMes();
+      /* Set correct week */
+      const filtroSemEl = document.getElementById('reg_filtro_semana');
+      if (filtroSemEl) {
+        const sy = new Date(hoy.getFullYear(), 0, 1);
+        const diasDesde = Math.floor((hoy - sy) / 86400000);
+        const week = Math.ceil((diasDesde + sy.getDay() + 1) / 7);
+        const opt = filtroSemEl.querySelector(`option[value="${week}"]`);
+        if (opt) filtroSemEl.value = week;
+      }
+    }
+}, 300);
 
-  attachCalcListeners();
+attachCalcListeners();
   attachProyListeners();
   attachModalListeners();
   attachEquilibrioListeners();
@@ -293,6 +335,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* Actualizar badge del buzón */
   actualizarBuzonBadge();
+
+  /* Guardar datos automáticamente al cerrar o recargar la página */
+  window.addEventListener('beforeunload', () => {
+    const s = TAOS.state;
+    guardar('colaboradores',  s.colaboradores  || []);
+    guardar('inventario',     s.inventario     || []);
+    guardar('registroDiario', s.registroDiario || []);
+    guardar('presencia',      s.presencia      || {});
+    guardar('estado_financiero', {
+      ingresos: s.ingresos  || 0,
+      egresos:  s.egresos   || 0,
+      ganancia: s.ganancia  || 0,
+      unidadesVendidas:   s.unidadesVendidas   || 0,
+      unidadesProducidas: s.unidadesProducidas || 0,
+      periodo: s.periodo,
+      semana:  s.semana,
+    });
+    guardar('proyecciones', s.proyecciones || []);
+    guardar('reg_config', {
+      precioVentaUnitReg: s.precioVentaUnitReg || 0,
+      costoFabUnitReg:    s.costoFabUnitReg    || 0,
+    });
+    guardarCalcInputs();
+  });
 
   /* Cerrar paneles al hacer clic fuera */
   document.addEventListener('click', (e) => {
@@ -396,12 +462,13 @@ function actualizarResumenEjecutivo() {
   const ganEl = document.getElementById('re_ganancia');
   if (ganEl) ganEl.style.color = (s.ganancia || 0) >= 0 ? 'var(--green-text)' : 'var(--red)';
 
-  const peU     = s.puntoEquilUnidades != null ? s.puntoEquilUnidades : 2150;
-  const peD     = s.puntoEquilDinero   != null ? s.puntoEquilDinero   : 18275;
-  const uvs     = s.unidadesVendidas   || 0;
-  const PE_PROD = 200;
-  const restantes = Math.max(0, PE_PROD - uvs);
-  const pct       = Math.min(100, (uvs / PE_PROD) * 100);
+  const peU        = s.puntoEquilUnidades != null ? s.puntoEquilUnidades : 200;
+  const peD        = s.puntoEquilDinero   != null ? s.puntoEquilDinero   : 1700;
+  const uvs        = s.unidadesVendidas   || 0;
+  const totalIng   = s.ingresos           || 0;
+  const META_DIARIA = 200;
+  const restantes  = Math.max(0, META_DIARIA - uvs);
+  const pct        = Math.min(100, (uvs / META_DIARIA) * 100);
 
   const sinDatos = !colabs.length && !(s.registroDiario || []).length && uvs === 0;
   if (sinDatos) {
@@ -410,16 +477,16 @@ function actualizarResumenEjecutivo() {
     setText('eq_pe_unidades', '—');
     setText('eq_pe_dinero', '—');
   } else {
-    if (uvs < PE_PROD) {
-      setText('eq_circle_num', uvs.toLocaleString('es-EC') + ' / ' + PE_PROD);
+    if (uvs < META_DIARIA) {
+      setText('eq_circle_num', uvs.toLocaleString('es-EC') + ' / ' + META_DIARIA);
     } else {
       const eqFecha = document.getElementById('eq_fecha')?.value;
       const today   = new Date().toISOString().split('T')[0];
       const msg     = eqFecha && eqFecha < today ? '🎯' : '💪';
       setText('eq_circle_num', msg);
     }
-    setText('eq_pe_unidades', peU.toLocaleString('es-EC'));
-    setText('eq_pe_dinero',   fmt$(peD));
+    setText('eq_pe_unidades', uvs.toLocaleString('es-EC') + ' / ' + peU.toLocaleString('es-EC'));
+    setText('eq_pe_dinero',   fmt$(totalIng) + ' / ' + fmt$(peD));
     setText('eq_pct',         pct.toFixed(0) + '%');
   }
 
@@ -1086,6 +1153,7 @@ function attachCalcListeners() {
     'cr_psc,cr_margen,cr_iva':                                         calcCosteoReceta,
     'mg_ingresos,mg_egresos':                                          calcMargenGanancia,
     'pe_costos_fijos,pe_precio_venta,pe_costo_var_unit':               calcPuntoEquilibrio,
+    'pr_margen_dist':                                                    calcProducto,
   };
 
   Object.entries(calcMap).forEach(([ids, fn]) => {
@@ -1139,6 +1207,14 @@ function attachCalcListeners() {
       renderInventarioGeneral();
     });
   });
+
+  /* Producto manual input listeners */
+  const pCosto = document.getElementById('pr_costo_fab_input');
+  if (pCosto) pCosto.addEventListener('input', onProductoCostoFabInput);
+  const pPvd = document.getElementById('pr_pvd_input');
+  if (pPvd) pPvd.addEventListener('input', onProductoPvdInput);
+  const pMargen = document.getElementById('pr_margen_dist');
+  if (pMargen) pMargen.addEventListener('input', calcProducto);
 }
 
 function attachProyListeners() {
@@ -1181,13 +1257,7 @@ function getActiveChip(group) {
   return el.getAttribute('data-filter-' + group) || 'todas';
 }
 
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function capFirst(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
+/* (escHtml, capFirst defined in taos_utilitarios.js) */
 
 /* ════════════════════════════════════════════════════════════
    ACTUALIZAR SISTEMA / RESET
@@ -1261,7 +1331,7 @@ function togglePanelActualizar() {
       encontrados++;
     }
     if (container) container.innerHTML = html || '<div class="guardar-panel-hint" style="padding:8px;text-align:center;color:var(--text3);font-size:12px">Usa "Sincronizar ahora" para crear el primer punto de restauración</div>';
-  } catch(_) {}
+  } catch(e) { console.error('Error al cargar historial:', e); }
   p.style.display = 'flex';
 }
 
@@ -1281,7 +1351,12 @@ function aplicarHistorialMulti(desde) {
   const hist = obtenerHistorial().filter(h => h.fecha >= desde);
   if (!hist.length) return;
   const merged = {};
-  for (const h of hist) Object.assign(merged, h.data);
+  const ALLOWED_PREFIXES = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_calc_inputs'];
+  for (const h of hist) {
+    for (const k of Object.keys(h.data)) {
+      if (ALLOWED_PREFIXES.some(p => k.startsWith(p))) merged[k] = h.data[k];
+    }
+  }
   for (const k of Object.keys(merged)) localStorage.setItem(k, merged[k]);
   document.getElementById('panel_actualizar').style.display = 'none';
   toast('Restaurados ' + hist.length + ' guardados desde ' + desde);
@@ -1295,6 +1370,27 @@ function togglePanelGuardar() {
   if (p.style.display === 'flex') { p.style.display = 'none'; return; }
   cerrarTodosPaneles();
   p.style.display = 'flex';
+}
+
+function guardarCalcInputs() {
+  const vals = {};
+  CALC_INPUT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) vals[id] = el.value;
+  });
+  guardar('calc_inputs', vals);
+}
+
+function cargarCalcInputs() {
+  const vals = cargar('calc_inputs', null);
+  if (vals) {
+    CALC_INPUT_IDS.forEach(id => {
+      if (id in vals) {
+        const el = document.getElementById(id);
+        if (el) el.value = vals[id];
+      }
+    });
+  }
 }
 
 function guardarSistemaLocal() {
@@ -1317,9 +1413,10 @@ function guardarSistemaLocal() {
     precioVentaUnitReg: s.precioVentaUnitReg || 0,
     costoFabUnitReg:    s.costoFabUnitReg    || 0,
   });
+  guardarCalcInputs();
   guardarSnapshot('local');
   document.getElementById('panel_guardar').style.display = 'none';
-  toast('Datos guardados localmente ✓');
+  toast('Guardar Día ✓');
 }
 
 function guardarCierreCaja() {
@@ -1400,7 +1497,7 @@ function restaurarPrimerGuardado() {
 
 function restaurarValoresFabrica() {
   if (!confirm('¿Restaurar valores de fábrica? Todos los datos se limpiarán (plantilla vacía).')) return;
-  const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_historial'];
+  const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_historial','taos_calc_inputs'];
   prefijos.forEach(k => localStorage.removeItem(k));
   document.getElementById('panel_reset').style.display = 'none';
 
@@ -1416,6 +1513,9 @@ function restaurarValoresFabrica() {
   TAOS.state.precioVenta = TAOS.state.costoVariableUnit = TAOS.state.materiaPrimaUnit = 0;
   TAOS.state.precioVentaUnitReg = TAOS.state.costoFabUnitReg = 0;
   TAOS.state.proyecciones = [];
+  guardar('estado_financiero', {ingresos:0,egresos:0,ganancia:0,unidadesVendidas:0,unidadesProducidas:0});
+  guardar('proyecciones', []);
+  guardar('reg_config', {precioVentaUnitReg:0,costoFabUnitReg:0});
 
   /* Clear all calculator & form input values */
   const idsZero = [
@@ -1467,9 +1567,46 @@ function restaurarValoresFabrica() {
   toast('Valores de fábrica — plantilla vacía');
 }
 
+function reinitAllInputs() {
+  const CALC_IDS = [
+    'cf_arriendo','cf_servicios','cf_nomina_val','cf_deprec','cf_consumibles',
+    'cv_costo_unit','cv_cantidad','di_mp','di_mod','di_cif','di_gadm','di_gven',
+    'mp_mezcla','mp_merma','mp_congelante','mo_salario','mo_horas','mo_trabajadores',
+    'cr_psc','cr_margen','cr_iva','mg_inversion','mg_ingresos','mg_egresos',
+    'pe_costos_fijos','pe_precio_venta','pe_costo_var_unit',
+    'actual_u_vendidas','actual_u_vendidas_proy','actual_tasa_crec','proy_uprod',
+    'eq_uprod','eq_ingresos','eq_egresos',
+    'pr_costo_fab_input','pr_pvd_input','pr_pvp_input',
+  ];
+  CALC_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.getAttribute('data-default') ?? el.getAttribute('value') ?? '';
+  });
+  ['proy_tasa','proy_meses'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '1';
+  });
+  const invPctEl = document.getElementById('inv_futura_pct');
+  if (invPctEl) invPctEl.value = '0';
+  const tb = document.getElementById('proy_tabla_body');
+  if (tb) tb.innerHTML = '';
+  const DISPLAY_IDS = [
+    'cf_total','cv_total','di_directos','di_indirectos','di_total',
+    'mp_total_disp','mo_total','cr_pvdiva_disp','cr_psc_disp',
+    'mg_total_margen','mg_ganancia_neta','mg_margen_indicator',
+    'pe_total_unidades','pe_dinero_disp','pe_margen_contrib',
+    'inv_futura_val','obj_rec_val','obj_rec_diff',
+    'obj_pe_vendidas','obj_pe_pct','obj_pe_restantes'
+  ];
+  DISPLAY_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+}
+
 function restaurarValoresPredeterminados() {
   if (!confirm('¿Restaurar valores predeterminados? Se cargarán los datos iniciales de fábrica (colaboradores, inventario).')) return;
-  const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config'];
+  const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_calc_inputs'];
   prefijos.forEach(k => localStorage.removeItem(k));
   document.getElementById('panel_reset').style.display = 'none';
 
@@ -1483,6 +1620,9 @@ function restaurarValoresPredeterminados() {
   TAOS.state.puntoEquilUnidades = 0;
   TAOS.state.puntoEquilDinero   = 0;
   TAOS.state.proyecciones = [];
+  guardar('estado_financiero', {ingresos:0,egresos:0,ganancia:0,unidadesVendidas:0,unidadesProducidas:0});
+  guardar('proyecciones', []);
+  guardar('reg_config', {precioVentaUnitReg:0,costoFabUnitReg:0});
 
   guardar('colaboradores', TAOS.state.colaboradores);
   guardar('inventario',    TAOS.state.inventario);
@@ -1572,8 +1712,8 @@ function renderOtrosOperadores() {
       <div style="display:flex;align-items:center;gap:4px;padding:4px 0">
         <span style="font-size:13px">👤</span>
         <span style="flex:1;font-size:13px;font-weight:600">${o.name}</span>
-        <button style="font-size:11px;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;background:var(--green-soft);color:var(--green-text);font-weight:600" onclick="aprobarOperador('${o.name}',true)">✅</button>
-        <button style="font-size:11px;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;background:#fef2f2;color:var(--red);font-weight:600" onclick="aprobarOperador('${o.name}',false)">❌</button>
+        <button style="font-size:11px;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;background:var(--green-soft);color:var(--green-text);font-weight:600" onclick="aprobarOperador('${escHtml(o.name)}',true)">✅</button>
+        <button style="font-size:11px;padding:2px 8px;border:none;border-radius:4px;cursor:pointer;background:#fef2f2;color:var(--red);font-weight:600" onclick="aprobarOperador('${escHtml(o.name)}',false)">❌</button>
       </div>
     `).join('');
   }
@@ -1581,7 +1721,7 @@ function renderOtrosOperadores() {
   if (approved.length) {
     html += '<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:6px 0 4px">Otros operadores</div>';
     html += approved.map(o => `
-      <div style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer" onclick="seleccionarOperador('${o.name}')">
+      <div style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer" onclick="seleccionarOperador('${escHtml(o.name)}')">
         <span style="font-size:13px">👤</span>
         <span style="flex:1;font-size:13px;font-weight:600">${o.name}</span>
         <span style="font-size:12px;opacity:.5">${o.pass ? '🔒' : '🔓'}</span>
@@ -1836,10 +1976,30 @@ function attachRegistroListeners() {
     const se = document.getElementById('reg_semana');
     if (se) {
       const sy = new Date(d.getFullYear(), 0, 1);
-      const sem = Math.ceil(((d - sy) / 86400000 + sy.getDay() + 1) / 7);
+      const diasDesde = Math.floor((d - sy) / 86400000);
+      const sem = Math.ceil((diasDesde + sy.getDay() + 1) / 7);
       const opt = se.querySelector(`option[value="${sem}"]`);
       if (opt) se.value = sem;
     }
+    /* Auto-load existing entry for this date */
+    const regs = TAOS.state.registroDiario || [];
+    const existing = regs.find(r => r.fecha === fechaEl.value);
+    const uprodEl = document.getElementById('reg_uprod_form');
+    const uvendEl = document.getElementById('reg_uvend_form');
+    const ingEl = document.getElementById('reg_ingresos_form');
+    const egEl = document.getElementById('reg_egresos_form');
+    if (existing) {
+      if (uprodEl) uprodEl.value = existing.uprod || '';
+      if (uvendEl) uvendEl.value = existing.uvend || '';
+      if (ingEl) ingEl.value = existing.ing || '';
+      if (egEl) egEl.value = existing.eg || '';
+    } else {
+      if (uprodEl) uprodEl.value = '';
+      if (uvendEl) uvendEl.value = '';
+      if (ingEl) ingEl.value = '';
+      if (egEl) egEl.value = '';
+    }
+    actualizarPreviewRegistro();
   });
 
   // Initial auto-calc
@@ -2066,7 +2226,6 @@ function filtrarPeriodo() {
   const regs   = TAOS.state.registroDiario || [];
 
   const filtrados = regs.filter(r => r.mes === mesNum && r.semana === semNum);
-  if (!filtrados.length) filtrados.push(...regs.filter(r => r.mes === mesNum));
 
   const uvend  = filtrados.reduce((s,r) => s + (r.uvend||0), 0);
   const uprod  = filtrados.reduce((s,r) => s + (r.uprod||0), 0);
@@ -2075,10 +2234,17 @@ function filtrarPeriodo() {
   const gan    = ing - eg;
 
   const resumen = document.getElementById('reg_periodo_resumen');
-  if (resumen) resumen.style.display = 'block';
+  if (resumen) {
+    resumen.style.display = filtrados.length ? 'block' : 'none';
+  }
+  const emptyMsg = document.getElementById('reg_periodo_vacio');
+  if (emptyMsg) emptyMsg.style.display = filtrados.length ? 'none' : 'block';
 
   const periodoLabel = MESES_NOMBRE[mesNum - 1] + ' - Sem ' + semNum;
   setText('reg_periodo_titulo', periodoLabel + ' — ' + filtrados.length + ' días registrados');
+
+  if (!filtrados.length) { setText('reg_periodo_uvend','—'); setText('reg_periodo_uprod','—'); setText('reg_periodo_ing','—'); setText('reg_periodo_eg','—'); setText('reg_periodo_gan','—'); setText('reg_periodo_margen','—'); setText('reg_periodo_margen_pct','—'); return; }
+
   setText('reg_periodo_uvend',  uvend.toLocaleString('es-EC'));
   setText('reg_periodo_uprod',  uprod.toLocaleString('es-EC'));
   setText('reg_periodo_dias',   filtrados.length.toString());
@@ -2093,12 +2259,34 @@ function filtrarPeriodo() {
   const pEl = document.getElementById('actual_u_vendidas_proy');
   if (pEl) { pEl.value = uvend; pEl.dispatchEvent(new Event('input')); }
 
-  /* Sync Escenario Actual fields */
+  /* Sync all Escenario Actual auto fields from filtered data */
+  const uprodEl = document.getElementById('proy_uprod');
+  if (uprodEl) uprodEl.value = uprod;
+  const ingElProy = document.getElementById('proy_ingresos');
+  if (ingElProy) ingElProy.value = ing.toFixed(2);
+  const egElProy = document.getElementById('proy_egresos');
+  if (egElProy) egElProy.value = eg.toFixed(2);
+
   const actualMesEl = document.getElementById('actual_mes');
   const actualSemEl = document.getElementById('actual_semana');
   if (actualMesEl) { actualMesEl.value = mesNum; if (typeof actualizarSemanasActual === 'function') actualizarSemanasActual(); }
   if (actualSemEl) { const opt = actualSemEl.querySelector(`option[value="${semNum}"]`); if (opt) actualSemEl.value = semNum; }
 
+  /* Pre-fill registro form with the last entry from this period */
+  if (filtrados.length > 0) {
+    const last = filtrados[filtrados.length - 1];
+    const uvendFormEl = document.getElementById('reg_uvend_form');
+    const uprodFormEl = document.getElementById('reg_uprod_form');
+    const ingFormEl = document.getElementById('reg_ingresos_form');
+    const egFormEl = document.getElementById('reg_egresos_form');
+    if (uvendFormEl) uvendFormEl.value = last.uvend || '';
+    if (uprodFormEl) uprodFormEl.value = last.uprod || '';
+    if (ingFormEl) ingFormEl.value = last.ing || '';
+    if (egFormEl) egFormEl.value = last.eg || '';
+    actualizarPreviewRegistro();
+  }
+
+  if (typeof calcProyecciones === 'function') calcProyecciones();
   toast('Periodo filtrado: ' + periodoLabel + ' — ' + uvend + ' u. vendidas ✓');
 }
 
@@ -2121,8 +2309,20 @@ function actualizarPeriodoActual() {
   if (!filtrados.length) filtrados.push(...regs.filter(r => r.mes === mesNum));
 
   const uvend = filtrados.reduce((s,r) => s + (r.uvend||0), 0);
-  const pEl = document.getElementById('actual_u_vendidas_proy');
-  if (pEl && filtrados.length > 0) pEl.value = uvend;
+  const uprod = filtrados.reduce((s,r) => s + (r.uprod||0), 0);
+  const ing   = filtrados.reduce((s,r) => s + (r.ing  ||0), 0);
+  const eg    = filtrados.reduce((s,r) => s + (r.eg   ||0), 0);
+
+  const uvendEl = document.getElementById('actual_u_vendidas_proy');
+  if (uvendEl && filtrados.length > 0) uvendEl.value = uvend;
+  const uprodEl = document.getElementById('proy_uprod');
+  if (uprodEl) uprodEl.value = uprod;
+  const ingEl = document.getElementById('proy_ingresos');
+  if (ingEl) ingEl.value = ing.toFixed(2);
+  const egEl = document.getElementById('proy_egresos');
+  if (egEl) egEl.value = eg.toFixed(2);
+
+  if (typeof calcProyecciones === 'function') calcProyecciones();
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2143,7 +2343,7 @@ function sincronizarDesdeRegistro() {
   TAOS.state.unidadesProducidas = totalUprod;
   TAOS.state.unidadesVendidas   = totalUvend;
 
-  const PE_UNIDADES = 200;
+  const PE_UNIDADES = TAOS.state.puntoEquilUnidades || 200;
   const tasaReal    = totalUvend > 0
     ? ((totalUvend - PE_UNIDADES) / PE_UNIDADES * 100)
     : 0;
@@ -2175,6 +2375,7 @@ function sincronizarDesdeRegistro() {
   actualizarResumenEjecutivo();
   if (typeof actualizarKPIsActuales === 'function') actualizarKPIsActuales();
   if (typeof calcMargenGanancia === 'function') calcMargenGanancia();
+  if (typeof calcProyecciones === 'function') calcProyecciones();
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2190,67 +2391,73 @@ function splashOcultar() {
 }
 
 function splashAccion(accion) {
-  if (accion === 'sync') {
-    sincronizarDesdeRegistro();
-    syncAllCalculators();
-    calcProyecciones();
-    actualizarResumenEjecutivo();
-    renderNomina();
-    renderInventario();
-    renderInventarioGeneral();
-    renderRegistroDiario();
-    guardarSnapshot('sync');
-    toast('Sistema sincronizado ✓');
-    splashOcultar();
-  } else if (accion === 'ultimo_mes') {
-    const ahora = new Date();
-    const mesActual = ahora.getMonth() + 1;
-    const anioActual = ahora.getFullYear();
-    const mesAnterior = mesActual === 1 ? 12 : mesActual - 1;
-    const anioAnterior = mesActual === 1 ? anioActual - 1 : anioActual;
-    const raw = localStorage.getItem('taos_registroDiario');
-    if (raw) {
-      const regs = JSON.parse(raw);
-      const filtrados = regs.filter(r => {
-        if (!r.fecha) return r.mes === mesActual || r.mes === mesAnterior;
-        const d = new Date(r.fecha + 'T12:00:00');
-        if (isNaN(d)) return r.mes === mesActual || r.mes === mesAnterior;
-        const m = d.getMonth() + 1;
-        const a = d.getFullYear();
-        return (a === anioActual && m === mesActual) || (a === anioAnterior && m === mesAnterior);
-      });
-      localStorage.setItem('taos_registroDiario', JSON.stringify(filtrados));
-      TAOS.state.registroDiario = filtrados;
-    }
-    sincronizarDesdeRegistro();
-    syncAllCalculators();
-    calcProyecciones();
-    actualizarResumenEjecutivo();
-    renderNomina();
-    renderInventario();
-    renderInventarioGeneral();
-    renderRegistroDiario();
-    if (typeof renderCalendarioRegistro === 'function') renderCalendarioRegistro();
-    toast('Último mes cargado ✓');
-    splashOcultar();
-  } else if (accion === 'primer_guardado') {
-    const hist = obtenerHistorial();
-    const hoy  = new Date().toISOString().split('T')[0];
-    const primero = hist.find(h => h.fecha === hoy);
-    if (!primero) {
-      toast('No hay guardado de hoy — se cargará el estado actual', 'warn');
+  try {
+    if (accion === 'sync') {
+      sincronizarDesdeRegistro();
+      syncAllCalculators();
+      calcProyecciones();
+      actualizarResumenEjecutivo();
+      renderNomina();
+      renderInventario();
+      renderInventarioGeneral();
+      renderRegistroDiario();
+      guardarSnapshot('sync');
+      toast('Sistema sincronizado ✓');
       splashOcultar();
-      return;
+    } else if (accion === 'ultimo_mes') {
+      const ahora = new Date();
+      const mesActual = ahora.getMonth() + 1;
+      const anioActual = ahora.getFullYear();
+      const mesAnterior = mesActual === 1 ? 12 : mesActual - 1;
+      const anioAnterior = mesActual === 1 ? anioActual - 1 : anioActual;
+      const raw = localStorage.getItem('taos_registroDiario');
+      if (raw) {
+        const regs = JSON.parse(raw);
+        const filtrados = regs.filter(r => {
+          if (!r.fecha) return r.mes === mesActual || r.mes === mesAnterior;
+          const d = new Date(r.fecha + 'T12:00:00');
+          if (isNaN(d)) return r.mes === mesActual || r.mes === mesAnterior;
+          const m = d.getMonth() + 1;
+          const a = d.getFullYear();
+          return (a === anioActual && m === mesActual) || (a === anioAnterior && m === mesAnterior);
+        });
+        localStorage.setItem('taos_registroDiario', JSON.stringify(filtrados));
+        TAOS.state.registroDiario = filtrados;
+      }
+      sincronizarDesdeRegistro();
+      syncAllCalculators();
+      calcProyecciones();
+      actualizarResumenEjecutivo();
+      renderNomina();
+      renderInventario();
+      renderInventarioGeneral();
+      renderRegistroDiario();
+      if (typeof renderCalendarioRegistro === 'function') renderCalendarioRegistro();
+      toast('Último mes cargado ✓');
+      splashOcultar();
+    } else if (accion === 'primer_guardado') {
+      const hist = obtenerHistorial();
+      const hoy  = new Date().toISOString().split('T')[0];
+      const primero = hist.find(h => h.fecha === hoy);
+      if (!primero) {
+        toast('No hay guardado de hoy — se cargará el estado actual', 'warn');
+        splashOcultar();
+        return;
+      }
+      for (const k of Object.keys(primero.data)) localStorage.setItem(k, primero.data[k]);
+      toast('Primer guardado del día cargado. Recargando…');
+      setTimeout(() => location.reload(), 800);
+    } else if (accion === 'fabrica') {
+      if (!confirm('¿Restaurar valores de fábrica? Todos los datos se limpiarán (plantilla vacía).')) return;
+      const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_historial'];
+      prefijos.forEach(k => localStorage.removeItem(k));
+      toast('Valores de fábrica aplicados. Recargando…');
+      setTimeout(() => location.reload(), 800);
     }
-    for (const k of Object.keys(primero.data)) localStorage.setItem(k, primero.data[k]);
-    toast('Primer guardado del día cargado. Recargando…');
-    setTimeout(() => location.reload(), 800);
-  } else if (accion === 'fabrica') {
-    if (!confirm('¿Restaurar valores de fábrica? Todos los datos se limpiarán (plantilla vacía).')) return;
-    const prefijos = ['taos_colaboradores','taos_inventario','taos_registroDiario','taos_presencia','taos_estado_financiero','taos_proyecciones','taos_reg_config','taos_historial'];
-    prefijos.forEach(k => localStorage.removeItem(k));
-    toast('Valores de fábrica aplicados. Recargando…');
-    setTimeout(() => location.reload(), 800);
+  } catch (e) {
+    console.error('splashAccion(' + accion + '):', e);
+    toast('Error: ' + (e.message || e), 'error');
+    splashOcultar();
   }
 }
 
